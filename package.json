@@ -27,14 +27,23 @@
     "@rstest/core": "^0.7.7",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.1",
+    "@types/node": "^25.0.3",
     "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
     "happy-dom": "^20.0.11",
+    "rc-animate": "^3.1.1",
     "react": "^19.2.3",
+    "react-dom": "^19.2.3",
     "typescript": "^5.9.3"
   },
   "peerDependencies": {
     "react": ">=16.9.0",
     "react-dom": ">=16.9.0"
   },
-  "private": true
+  "private": true,
+  "dependencies": {
+    "@rc-component/resize-observer": "^1.0.1",
+    "@rc-component/util": "^1.7.0",
+    "clsx": "^2.1.1"
+  }
 }

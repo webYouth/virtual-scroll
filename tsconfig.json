@@ -8,7 +8,15 @@
     "isolatedModules": true,
     "resolveJsonModule": true,
     "moduleResolution": "bundler",
-    "useDefineForClassFields": true
+    "useDefineForClassFields": true,
+    "paths": {
+      "@/*": [
+        "src/*"
+      ],
+      "mfy-virtual-list": [
+        "src/index.tsx"
+      ]
+    },
   },
   "include": ["src"]
 }
