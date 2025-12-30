@@ -59,20 +59,32 @@ export type ScrollConfig = ScrollTarget | ScrollPos;
 
 export type ScrollTo = (arg?: number | ScrollConfig | null) => void;
 
-export type ListRef = {
+export type GroupGridRef = {
   nativeElement: HTMLDivElement;
   scrollTo: ScrollTo;
   getScrollInfo: () => ScrollInfo;
 };
 
-export interface ListProps<T> extends Omit<HTMLAttributes<any>, 'children'> {
+// Define the group structure
+export interface GroupItem<T> {
+  key: Key;
+  title?: string;
+  children: T[];
+}
+
+export interface GroupGridProps<T> extends Omit<HTMLAttributes<any>, 'children'> {
   prefixCls?: string;
   children: RenderFunc<T>;
-  data: T[];
+  groups: GroupItem<T>[];
   height?: number;
   itemHeight?: number;
-  /** If not match virtual scroll condition, Set List still use height of container. */
+  itemWidth?: number;
+  columnCount?: number; // Number of columns in the grid
+  columnWidth?: number; // Width of each column
+  groupHeaderHeight?: number; // Height of group header
+  /** If not match virtual scroll condition, Set GroupGrid still use height of container. */
   fullHeight?: boolean;
+  groupKey: Key | ((group: GroupItem<T>) => Key);
   itemKey: Key | ((item: T) => Key);
   component?: string | FC<any> | ComponentClass<any>;
   /** Set `false` will always use real scroll instead of virtual one */
@@ -101,7 +113,7 @@ export interface ListProps<T> extends Omit<HTMLAttributes<any>, 'children'> {
    */
   onVirtualScroll?: (info: ScrollInfo) => void;
 
-  /** Trigger when render list item changed */
+  /** Trigger when render grid item changed */
   onVisibleChange?: (visibleList: T[], fullList: T[]) => void;
 
   /** Inject to inner container props. Only use when you need pass aria related data */
@@ -109,18 +121,26 @@ export interface ListProps<T> extends Omit<HTMLAttributes<any>, 'children'> {
 
   /** Render extra content into Filler */
   extraRender?: (info: ExtraRenderInfo) => ReactNode;
+  
+  /** Render group header */
+  groupHeaderRender?: (group: GroupItem<T>, index: number) => ReactNode;
 }
 
-export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
+export function RawGroupGrid<T>(props: GroupGridProps<T>, ref: Ref<GroupGridRef>) {
   const {
-    prefixCls = 'rc-virtual-list',
+    prefixCls = 'rc-virtual-group-grid',
     className,
     height,
-    itemHeight,
+    itemHeight = 100,
+    itemWidth,
+    columnCount,
+    columnWidth,
+    groupHeaderHeight = 40,
     fullHeight = true,
     style,
-    data,
+    groups,
     children,
+    groupKey,
     itemKey,
     virtual,
     direction,
@@ -133,11 +153,34 @@ export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
     extraRender,
     styles,
     showScrollBar = 'optional',
+    groupHeaderRender,
     ...restProps
   } = props;
 
-  // =============================== Item Key ===============================
-  const getKey = useCallback<GetKey<T>>(
+  // Calculate column count and width based on itemWidth or columnWidth
+  const [calculatedColumnCount, calculatedColumnWidth] = useMemo(() => {
+    if (columnCount) {
+      return [columnCount, columnWidth || itemWidth || 100];
+    } else if (columnWidth) {
+      return [Math.floor((scrollWidth || 0) / columnWidth), columnWidth];
+    } else if (itemWidth) {
+      return [Math.floor((scrollWidth || 0) / itemWidth), itemWidth];
+    }
+    return [4, 100]; // default
+  }, [columnCount, columnWidth, itemWidth, scrollWidth]);
+
+  // =============================== Group/Item Key ===============================
+  const getGroupKey = useCallback<GetKey<GroupItem<T>>>(
+    (group: GroupItem<T>) => {
+      if (typeof groupKey === 'function') {
+        return groupKey(group);
+      }
+      return group?.[groupKey as keyof GroupItem<T>] as Key;
+    },
+    [groupKey],
+  );
+
+  const getItemKey = useCallback<GetKey<T>>(
     (item: T) => {
       if (typeof itemKey === 'function') {
         return itemKey(item);
@@ -150,19 +193,24 @@ export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
 
   // ================================ Height ================================
   const [setInstanceRef, collectHeight, heights, heightUpdatedMark] =
-    useHeights(getKey, undefined, undefined);
+    useHeights(getItemKey, undefined, undefined);
 
   // ================================= MISC =================================
-  const useVirtual = !!(virtual !== false && height && itemHeight);
+  const useVirtual = !!(virtual !== false && height);
   const containerHeight = useMemo(
-    () => Object.values(heights.maps).reduce((total, curr) => total + curr, 0),
-    [heights.id, heights.maps],
+    () => {
+      if (!groups || groups.length === 0) return 0;
+      
+      return groups.reduce((totalHeight, group) => {
+        const itemsCount = group.children.length;
+        const rows = Math.ceil(itemsCount / calculatedColumnCount);
+        return totalHeight + groupHeaderHeight + (rows * itemHeight);
+      }, 0);
+    },
+    [groups, groupHeaderHeight, itemHeight, calculatedColumnCount],
   );
-  const inVirtual =
-    useVirtual &&
-    data &&
-    (Math.max(itemHeight * data.length, containerHeight) > height ||
-      !!scrollWidth);
+  
+  const inVirtual = useVirtual && groups && containerHeight > (height || 0);
   const isRTL = direction === 'rtl';
 
   const mergedClassName = clsx(
@@ -170,7 +218,7 @@ export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
     { [`${prefixCls}-rtl`]: isRTL },
     className,
   );
-  const mergedData = data || EMPTY_DATA;
+  const mergedGroups = groups || [];
   const componentRef = useRef<HTMLDivElement>(null);
   const fillerInnerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -189,7 +237,7 @@ export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
   };
 
   const sharedConfig: SharedConfig<T> = {
-    getKey,
+    getKey: getItemKey,
   };
 
   // ================================ Scroll ================================
@@ -212,11 +260,7 @@ export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
 
   // ================================ Legacy ================================
   // Put ref here since the range is generate by follow
-  const rangeRef = useRef({ start: 0, end: mergedData.length });
-
-  const diffItemRef = useRef<T>(null);
-  const [diffItem] = useDiffItem(mergedData, getKey);
-  diffItemRef.current = diffItem;
+  const rangeRef = useRef({ start: 0, end: mergedGroups.length });
 
   // ========================== Visible Calculation =========================
   const {
@@ -224,14 +268,18 @@ export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
     start,
     end,
     offset: fillerOffset,
+    visibleItems,
+    visibleGroups,
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   } = useMemo(() => {
     if (!useVirtual) {
       return {
         scrollHeight: undefined,
         start: 0,
-        end: mergedData.length - 1,
+        end: mergedGroups.length - 1,
         offset: undefined,
+        visibleItems: [],
+        visibleGroups: [],
       };
     }
 
@@ -240,65 +288,102 @@ export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
       return {
         scrollHeight: fillerInnerRef.current?.offsetHeight || 0,
         start: 0,
-        end: mergedData.length - 1,
+        end: mergedGroups.length - 1,
         offset: undefined,
+        visibleItems: [],
+        visibleGroups: [],
       };
     }
 
-    let itemTop = 0;
+    // Calculate start and end based on visible range in grouped grid
     let startIndex: number;
     let startOffset: number;
     let endIndex: number;
+    const visibleItems: Array<{ item: T; groupIndex: number; itemIndex: number }> = [];
+    const visibleGroups: Array<{ group: GroupItem<T>; startIndex: number; endIndex: number }> = [];
 
-    const dataLen = mergedData.length;
-    for (let i = 0; i < dataLen; i += 1) {
-      const item = mergedData[i];
-      const key = getKey(item);
+    if (mergedGroups.length === 0) {
+      return {
+        scrollHeight: 0,
+        start: 0,
+        end: -1,
+        offset: 0,
+        visibleItems: [],
+        visibleGroups: [],
+      };
+    }
 
-      const cacheHeight = heights.get(key);
-      const currentItemBottom =
-        itemTop + (cacheHeight === undefined ? itemHeight : cacheHeight);
-
-      // Check item top in the range
-      // @ts-expect-error
-      if (currentItemBottom >= offsetTop && startIndex === undefined) {
-        startIndex = i;
-        startOffset = itemTop;
+    // Calculate start and end based on offsetTop
+    let currentOffset = 0;
+    let calculatedStart = -1;
+    let calculatedEnd = -1;
+    let calculatedStartOffset = 0;
+    
+    for (let groupIndex = 0; groupIndex < mergedGroups.length; groupIndex++) {
+      const group = mergedGroups[groupIndex];
+      const itemsCount = group.children.length;
+      const rows = Math.ceil(itemsCount / calculatedColumnCount);
+      const groupHeight = groupHeaderHeight + (rows * itemHeight);
+      
+      // Check if the group is in the visible range
+      const groupEndOffset = currentOffset + groupHeight;
+      
+      if (calculatedStart === -1 && groupEndOffset > offsetTop) {
+        calculatedStart = groupIndex;
+        calculatedStartOffset = currentOffset;
       }
-
-      // Check item bottom in the range. We will render additional one item for motion usage
-      // @ts-expect-error
-      if (currentItemBottom > offsetTop + height && endIndex === undefined) {
-        endIndex = i;
+      
+      if (calculatedEnd === -1 && groupEndOffset >= offsetTop + (height || 0)) {
+        calculatedEnd = groupIndex;
       }
-
-      itemTop = currentItemBottom;
+      
+      // Add items to visible list if the group is visible
+      if (currentOffset <= offsetTop + (height || 0) && groupEndOffset >= offsetTop) {
+        visibleGroups.push({
+          group,
+          startIndex: visibleItems.length,
+          endIndex: visibleItems.length + itemsCount - 1
+        });
+        
+        for (let itemIndex = 0; itemIndex < itemsCount; itemIndex++) {
+          visibleItems.push({
+            item: group.children[itemIndex],
+            groupIndex,
+            itemIndex
+          });
+        }
+      }
+      
+      currentOffset = groupEndOffset;
+    }
+    
+    // If we didn't find an end, set it to the last group
+    if (calculatedEnd === -1) {
+      calculatedEnd = mergedGroups.length - 1;
     }
 
-    // When scrollTop at the end but data cut to small count will reach this
-    // @ts-expect-error
-    if (startIndex === undefined) {
-      startIndex = 0;
-      startOffset = 0;
-
-      endIndex = Math.ceil(height / itemHeight);
-    }
-    // @ts-expect-error
-    if (endIndex === undefined) {
-      endIndex = mergedData.length - 1;
-    }
-
-    // Give cache to improve scroll experience
-    endIndex = Math.min(endIndex + 1, mergedData.length - 1);
+    startIndex = Math.max(0, calculatedStart);
+    endIndex = Math.min(mergedGroups.length - 1, calculatedEnd);
 
     return {
-      scrollHeight: itemTop,
+      scrollHeight: currentOffset,
       start: startIndex,
       end: endIndex,
-      // @ts-expect-error
-      offset: startOffset,
+      offset: calculatedStartOffset,
+      visibleItems,
+      visibleGroups,
     };
-  }, [inVirtual, useVirtual, offsetTop, mergedData, heightUpdatedMark, height]);
+  }, [
+    inVirtual,
+    useVirtual,
+    offsetTop,
+    mergedGroups,
+    heightUpdatedMark,
+    height,
+    itemHeight,
+    calculatedColumnCount,
+    groupHeaderHeight
+  ]);
 
   rangeRef.current.start = start;
   rangeRef.current.end = end;
@@ -313,9 +398,9 @@ export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
       const prevCacheHeight = changedRecord.get(recordKey);
 
       // Quick switch data may cause `start` not in `mergedData` anymore
-      const startItem = mergedData[start];
+      const startItem = visibleItems?.[0]?.item;
       if (startItem && prevCacheHeight === undefined) {
-        const startIndexKey = getKey(startItem);
+        const startIndexKey = getItemKey(startItem);
         if (startIndexKey === recordKey) {
           const realStartHeight = heights.get(recordKey);
           const diffHeight = realStartHeight - (itemHeight ?? 0);
@@ -484,7 +569,7 @@ export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
         return false;
       }
 
-      // Fix nest List trigger TouchMove event
+      // Fix nest GroupGrid trigger TouchMove event
       if (!event || !event._virtualHandled) {
         if (event) {
           event._virtualHandled = true;
@@ -560,13 +645,14 @@ export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
     horizontalScrollBarRef.current?.delayHidden();
   };
 
+  // For group grid, we'll use a simplified scroll to just scroll to a group
   const scrollTo = useScrollTo<T>(
     // @ts-expect-error
     componentRef,
-    mergedData,
+    visibleItems?.map(vi => vi.item) || [],
     heights,
     itemHeight,
-    getKey,
+    getItemKey,
     () => collectHeight(true),
     syncScrollTop,
     delayHideScrollBar,
@@ -598,17 +684,24 @@ export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
   }));
 
   // ================================ Effect ================================
-  /** We need told outside that some list not rendered */
+  /** We need told outside that some grid not rendered */
   useLayoutEffect(() => {
     if (onVisibleChange) {
-      const renderList = mergedData.slice(start, end + 1);
+      const renderList = visibleItems?.map(vi => vi.item) || [];
 
-      onVisibleChange(renderList, mergedData);
+      onVisibleChange(renderList, 
+        mergedGroups.flatMap(g => g.children)
+      );
     }
-  }, [start, end, mergedData]);
+  }, [start, end, visibleItems, mergedGroups]);
 
   // ================================ Extra =================================
-  const getSize = useGetSize(mergedData, getKey, heights, itemHeight);
+  const getSize = useGetSize(
+    visibleItems?.map(vi => vi.item) || [],
+    getItemKey,
+    heights,
+    itemHeight
+  );
 
   const extraContent = extraRender?.({
     start,
@@ -621,22 +714,110 @@ export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
   });
 
   // ================================ Render ================================
-  const listChildren = useChildren(
-    mergedData,
-    start,
-    end,
-    scrollWidth ?? 0,
-    offsetLeft,
-    setInstanceRef,
-    children,
-    sharedConfig,
-  );
+  // Create grouped grid layout for children
+  const groupedGridChildren = useMemo(() => {
+    if (!visibleItems || visibleItems.length === 0) return null;
+
+    const elements: ReactElement[] = [];
+    
+    let currentOffsetY = 0;
+    
+    // Calculate the offset for the visible range
+    for (let groupIndex = start; groupIndex <= end && groupIndex < mergedGroups.length; groupIndex++) {
+      const group = mergedGroups[groupIndex];
+      const itemsCount = group.children.length;
+      const rows = Math.ceil(itemsCount / calculatedColumnCount);
+      const groupHeight = groupHeaderHeight + (rows * itemHeight);
+      
+      // If this group is not in the visible range yet, skip to next
+      if (currentOffsetY + groupHeight < offsetTop) {
+        currentOffsetY += groupHeight;
+        continue;
+      }
+      
+      // Add group header
+      const groupKey = getGroupKey(group);
+      elements.push(
+        <div
+          key={`header-${groupKey}`}
+          style={{
+            position: 'absolute',
+            top: currentOffsetY,
+            left: 0,
+            width: '100%',
+            height: groupHeaderHeight,
+            display: 'flex',
+            alignItems: 'center',
+            paddingLeft: 10,
+            backgroundColor: '#f5f5f5',
+            borderBottom: '1px solid #e8e8e8',
+          }}
+        >
+          {groupHeaderRender ? groupHeaderRender(group, groupIndex) : group.title || `Group ${groupIndex + 1}`}
+        </div>
+      );
+      
+      currentOffsetY += groupHeaderHeight;
+
+      // Add grid items for this group
+      const groupItems = group.children;
+      for (let itemIndex = 0; itemIndex < groupItems.length; itemIndex++) {
+        const item = groupItems[itemIndex];
+        const itemEleIndex = groupIndex * 10000 + itemIndex; // Use a unique index
+        const row = Math.floor(itemIndex / calculatedColumnCount);
+        const col = itemIndex % calculatedColumnCount;
+        
+        const node = children(item, itemEleIndex, {
+          style: {
+            width: calculatedColumnWidth,
+            height: itemHeight,
+          },
+          offsetX: 0,
+        }) as ReactElement;
+
+        const itemKey = getItemKey(item);
+        
+        elements.push(
+          <div
+            key={`item-${groupKey}-${itemKey}`}
+            style={{
+              position: 'absolute',
+              top: currentOffsetY + row * itemHeight,
+              left: col * calculatedColumnWidth,
+              width: calculatedColumnWidth,
+              height: itemHeight,
+            }}
+          >
+            {node}
+          </div>
+        );
+      }
+      
+      currentOffsetY += rows * itemHeight;
+    }
+
+    return elements;
+  }, [
+    mergedGroups, 
+    start, 
+    end, 
+    calculatedColumnCount, 
+    calculatedColumnWidth, 
+    itemHeight,
+    groupHeaderHeight,
+    children, 
+    getItemKey, 
+    getGroupKey,
+    groupHeaderRender,
+    offsetTop
+  ]);
 
   let componentStyle: CSSProperties | null = null;
   if (height) {
     componentStyle = {
       [fullHeight ? 'height' : 'maxHeight']: height,
       ...ScrollStyle,
+      position: 'relative',
     };
 
     if (useVirtual) {
@@ -656,6 +837,19 @@ export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
   if (isRTL) {
     containerProps.dir = 'rtl';
   }
+
+  // Calculate total grid dimensions
+  const totalHeight = useMemo(() => {
+    if (!mergedGroups || mergedGroups.length === 0) return 0;
+    
+    return mergedGroups.reduce((totalHeight, group) => {
+      const itemsCount = group.children.length;
+      const rows = Math.ceil(itemsCount / calculatedColumnCount);
+      return totalHeight + groupHeaderHeight + (rows * itemHeight);
+    }, 0);
+  }, [mergedGroups, groupHeaderHeight, itemHeight, calculatedColumnCount]);
+
+  const gridWidth = calculatedColumnCount * calculatedColumnWidth;
 
   return (
     <div
@@ -678,17 +872,25 @@ export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
         >
           <Filler
             prefixCls={prefixCls}
-            height={scrollHeight}
+            height={totalHeight}
             offsetX={offsetLeft}
             offsetY={fillerOffset}
-            scrollWidth={scrollWidth}
+            scrollWidth={gridWidth}
             onInnerResize={collectHeight}
             ref={fillerInnerRef}
             innerProps={innerProps}
             rtl={isRTL}
             extra={extraContent}
           >
-            {listChildren}
+            <div
+              style={{
+                position: 'relative',
+                height: totalHeight,
+                width: gridWidth,
+              }}
+            >
+              {groupedGridChildren}
+            </div>
           </Filler>
         </Component>
       </ResizeObserver>
@@ -734,10 +936,10 @@ export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
   );
 }
 
-const List = forwardRef<ListRef, ListProps<any>>(RawList);
+const GroupGrid = forwardRef<GroupGridRef, GroupGridProps<any>>(RawGroupGrid);
 
-List.displayName = 'List';
+GroupGrid.displayName = 'GroupGrid';
 
-export default List as <Item = any>(
-  props: ListProps<Item> & { ref?: Ref<ListRef> },
+export default GroupGrid as <Item = any>(
+  props: GroupGridProps<Item> & { ref?: Ref<GroupGridRef> },
 ) => ReactElement;

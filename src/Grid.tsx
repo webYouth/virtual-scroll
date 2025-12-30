@@ -59,19 +59,22 @@ export type ScrollConfig = ScrollTarget | ScrollPos;
 
 export type ScrollTo = (arg?: number | ScrollConfig | null) => void;
 
-export type ListRef = {
+export type GridRef = {
   nativeElement: HTMLDivElement;
   scrollTo: ScrollTo;
   getScrollInfo: () => ScrollInfo;
 };
 
-export interface ListProps<T> extends Omit<HTMLAttributes<any>, 'children'> {
+export interface GridProps<T> extends Omit<HTMLAttributes<any>, 'children'> {
   prefixCls?: string;
   children: RenderFunc<T>;
   data: T[];
   height?: number;
   itemHeight?: number;
-  /** If not match virtual scroll condition, Set List still use height of container. */
+  itemWidth?: number;
+  columnCount?: number; // Number of columns in the grid
+  columnWidth?: number; // Width of each column
+  /** If not match virtual scroll condition, Set Grid still use height of container. */
   fullHeight?: boolean;
   itemKey: Key | ((item: T) => Key);
   component?: string | FC<any> | ComponentClass<any>;
@@ -101,7 +104,7 @@ export interface ListProps<T> extends Omit<HTMLAttributes<any>, 'children'> {
    */
   onVirtualScroll?: (info: ScrollInfo) => void;
 
-  /** Trigger when render list item changed */
+  /** Trigger when render grid item changed */
   onVisibleChange?: (visibleList: T[], fullList: T[]) => void;
 
   /** Inject to inner container props. Only use when you need pass aria related data */
@@ -111,12 +114,15 @@ export interface ListProps<T> extends Omit<HTMLAttributes<any>, 'children'> {
   extraRender?: (info: ExtraRenderInfo) => ReactNode;
 }
 
-export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
+export function RawGrid<T>(props: GridProps<T>, ref: Ref<GridRef>) {
   const {
-    prefixCls = 'rc-virtual-list',
+    prefixCls = 'rc-virtual-grid',
     className,
     height,
     itemHeight,
+    itemWidth,
+    columnCount,
+    columnWidth,
     fullHeight = true,
     style,
     data,
@@ -135,6 +141,18 @@ export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
     showScrollBar = 'optional',
     ...restProps
   } = props;
+
+  // Calculate column count and width based on itemWidth or columnWidth
+  const [calculatedColumnCount, calculatedColumnWidth] = useMemo(() => {
+    if (columnCount) {
+      return [columnCount, columnWidth || itemWidth || 100];
+    } else if (columnWidth) {
+      return [Math.floor((scrollWidth || 0) / columnWidth), columnWidth];
+    } else if (itemWidth) {
+      return [Math.floor((scrollWidth || 0) / itemWidth), itemWidth];
+    }
+    return [4, 100]; // default
+  }, [columnCount, columnWidth, itemWidth, scrollWidth]);
 
   // =============================== Item Key ===============================
   const getKey = useCallback<GetKey<T>>(
@@ -155,14 +173,17 @@ export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
   // ================================= MISC =================================
   const useVirtual = !!(virtual !== false && height && itemHeight);
   const containerHeight = useMemo(
-    () => Object.values(heights.maps).reduce((total, curr) => total + curr, 0),
-    [heights.id, heights.maps],
+    () => {
+      const totalItems = data?.length || 0;
+      const rows = Math.ceil(totalItems / calculatedColumnCount);
+      return rows * (itemHeight || 0);
+    },
+    [data?.length, itemHeight, calculatedColumnCount],
   );
   const inVirtual =
     useVirtual &&
     data &&
-    (Math.max(itemHeight * data.length, containerHeight) > height ||
-      !!scrollWidth);
+    (Math.max(containerHeight, height || 0) > (height || 0) || !!scrollWidth);
   const isRTL = direction === 'rtl';
 
   const mergedClassName = clsx(
@@ -245,60 +266,58 @@ export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
       };
     }
 
-    let itemTop = 0;
+    // Calculate start and end based on visible range in grid
     let startIndex: number;
     let startOffset: number;
     let endIndex: number;
 
     const dataLen = mergedData.length;
-    for (let i = 0; i < dataLen; i += 1) {
-      const item = mergedData[i];
-      const key = getKey(item);
-
-      const cacheHeight = heights.get(key);
-      const currentItemBottom =
-        itemTop + (cacheHeight === undefined ? itemHeight : cacheHeight);
-
-      // Check item top in the range
-      // @ts-expect-error
-      if (currentItemBottom >= offsetTop && startIndex === undefined) {
-        startIndex = i;
-        startOffset = itemTop;
-      }
-
-      // Check item bottom in the range. We will render additional one item for motion usage
-      // @ts-expect-error
-      if (currentItemBottom > offsetTop + height && endIndex === undefined) {
-        endIndex = i;
-      }
-
-      itemTop = currentItemBottom;
+    if (dataLen === 0) {
+      return {
+        scrollHeight: 0,
+        start: 0,
+        end: -1,
+        offset: 0,
+      };
     }
 
-    // When scrollTop at the end but data cut to small count will reach this
-    // @ts-expect-error
-    if (startIndex === undefined) {
-      startIndex = 0;
-      startOffset = 0;
+    const rowHeight = itemHeight || 0;
+    const rows = Math.ceil(dataLen / calculatedColumnCount);
+    
+    // Calculate which row the offsetTop falls in
+    const startRow = Math.floor(offsetTop / rowHeight);
+    const endRow = Math.min(
+      Math.ceil((offsetTop + height) / rowHeight) + 1, // Add buffer row for smooth scrolling
+      rows
+    );
 
-      endIndex = Math.ceil(height / itemHeight);
-    }
-    // @ts-expect-error
-    if (endIndex === undefined) {
-      endIndex = mergedData.length - 1;
-    }
+    startIndex = startRow * calculatedColumnCount;
+    const endItemOfEndRow = endRow * calculatedColumnCount - 1;
+    endIndex = Math.min(endItemOfEndRow, dataLen - 1);
+    startOffset = startRow * rowHeight;
 
-    // Give cache to improve scroll experience
-    endIndex = Math.min(endIndex + 1, mergedData.length - 1);
+    // Ensure we have valid indices
+    startIndex = Math.max(0, startIndex);
+    endIndex = Math.min(dataLen - 1, endIndex);
+
+    const totalHeight = rows * rowHeight;
 
     return {
-      scrollHeight: itemTop,
+      scrollHeight: totalHeight,
       start: startIndex,
       end: endIndex,
-      // @ts-expect-error
       offset: startOffset,
     };
-  }, [inVirtual, useVirtual, offsetTop, mergedData, heightUpdatedMark, height]);
+  }, [
+    inVirtual, 
+    useVirtual, 
+    offsetTop, 
+    mergedData, 
+    heightUpdatedMark, 
+    height, 
+    itemHeight, 
+    calculatedColumnCount
+  ]);
 
   rangeRef.current.start = start;
   rangeRef.current.end = end;
@@ -484,7 +503,7 @@ export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
         return false;
       }
 
-      // Fix nest List trigger TouchMove event
+      // Fix nest Grid trigger TouchMove event
       if (!event || !event._virtualHandled) {
         if (event) {
           event._virtualHandled = true;
@@ -598,7 +617,7 @@ export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
   }));
 
   // ================================ Effect ================================
-  /** We need told outside that some list not rendered */
+  /** We need told outside that some grid not rendered */
   useLayoutEffect(() => {
     if (onVisibleChange) {
       const renderList = mergedData.slice(start, end + 1);
@@ -621,22 +640,49 @@ export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
   });
 
   // ================================ Render ================================
-  const listChildren = useChildren(
-    mergedData,
-    start,
-    end,
-    scrollWidth ?? 0,
-    offsetLeft,
-    setInstanceRef,
-    children,
-    sharedConfig,
-  );
+  // Create grid layout for children
+  const gridChildren = useMemo(() => {
+    const visibleItems = mergedData.slice(start, end + 1);
+    return visibleItems.map((item, index) => {
+      const eleIndex = start + index;
+      const row = Math.floor(eleIndex / calculatedColumnCount);
+      const col = eleIndex % calculatedColumnCount;
+      
+      const node = children(item, eleIndex, {
+        style: {
+          width: calculatedColumnWidth,
+          position: 'absolute',
+          top: row * (itemHeight || 0),
+          left: col * calculatedColumnWidth,
+          height: itemHeight,
+        },
+        offsetX: 0,
+      }) as ReactElement;
+
+      const key = getKey(item);
+      return (
+        <div
+          key={key}
+          style={{
+            position: 'absolute',
+            top: row * (itemHeight || 0),
+            left: col * calculatedColumnWidth,
+            width: calculatedColumnWidth,
+            height: itemHeight,
+          }}
+        >
+          {node}
+        </div>
+      );
+    });
+  }, [mergedData, start, end, calculatedColumnCount, calculatedColumnWidth, itemHeight, children, getKey]);
 
   let componentStyle: CSSProperties | null = null;
   if (height) {
     componentStyle = {
       [fullHeight ? 'height' : 'maxHeight']: height,
       ...ScrollStyle,
+      position: 'relative',
     };
 
     if (useVirtual) {
@@ -656,6 +702,12 @@ export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
   if (isRTL) {
     containerProps.dir = 'rtl';
   }
+
+  // Calculate grid container dimensions
+  const totalItems = mergedData.length;
+  const totalRows = Math.ceil(totalItems / calculatedColumnCount);
+  const gridHeight = totalRows * (itemHeight || 0);
+  const gridWidth = calculatedColumnCount * calculatedColumnWidth;
 
   return (
     <div
@@ -678,17 +730,25 @@ export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
         >
           <Filler
             prefixCls={prefixCls}
-            height={scrollHeight}
+            height={gridHeight}
             offsetX={offsetLeft}
             offsetY={fillerOffset}
-            scrollWidth={scrollWidth}
+            scrollWidth={gridWidth}
             onInnerResize={collectHeight}
             ref={fillerInnerRef}
             innerProps={innerProps}
             rtl={isRTL}
             extra={extraContent}
           >
-            {listChildren}
+            <div
+              style={{
+                position: 'relative',
+                height: gridHeight,
+                width: gridWidth,
+              }}
+            >
+              {gridChildren}
+            </div>
           </Filler>
         </Component>
       </ResizeObserver>
@@ -734,10 +794,10 @@ export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
   );
 }
 
-const List = forwardRef<ListRef, ListProps<any>>(RawList);
+const Grid = forwardRef<GridRef, GridProps<any>>(RawGrid);
 
-List.displayName = 'List';
+Grid.displayName = 'Grid';
 
-export default List as <Item = any>(
-  props: ListProps<Item> & { ref?: Ref<ListRef> },
+export default Grid as <Item = any>(
+  props: GridProps<Item> & { ref?: Ref<GridRef> },
 ) => ReactElement;
