@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "lib": ["DOM", "ES2022"],
+    "baseUrl": "./",
     "module": "ESNext",
     "jsx": "react-jsx",
     "strict": true,
@@ -16,7 +17,7 @@
       "mfy-virtual-list": [
         "src/index.tsx"
       ]
-    },
+    }
   },
   "include": ["src"]
 }

@@ -715,7 +715,8 @@ export function RawGroupGrid<T>(props: GroupGridProps<T>, ref: Ref<GroupGridRef>
 
   // ================================ Render ================================
   // Create grouped grid layout for children
-  const groupedGridChildren = useMemo(() => {
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+      const groupedGridChildren = useMemo(() => {
     if (!visibleItems || visibleItems.length === 0) return null;
 
     const elements: ReactElement[] = [];

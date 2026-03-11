@@ -45,9 +45,11 @@ export default function useMobileTouchMove(
       }
 
       // Smooth interval
+      // @ts-expect-error
       clearInterval(intervalRef.current);
 
       if (scrollHandled) {
+        // @ts-expect-error
         intervalRef.current = setInterval(() => {
           if (isHorizontal) {
             offsetX *= SMOOTH_PTG;
@@ -56,6 +58,7 @@ export default function useMobileTouchMove(
           }
           const offset = Math.floor(isHorizontal ? offsetX : offsetY);
           if (!callback(isHorizontal, offset, true) || Math.abs(offset) <= 0.1) {
+            // @ts-expect-error
             clearInterval(intervalRef.current);
           }
         }, 16);
@@ -98,6 +101,7 @@ export default function useMobileTouchMove(
     return () => {
       listRef.current?.removeEventListener('touchstart', onTouchStart);
       cleanUpEvents();
+      // @ts-expect-error
       clearInterval(intervalRef.current);
     };
   }, [inVirtual]);

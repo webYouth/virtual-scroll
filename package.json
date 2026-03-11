@@ -1,5 +1,5 @@
 {
-  "name": "mfy-virtual-list",
+  "name": "@webyouth/virtual-sroll",
   "version": "1.0.0",
   "type": "module",
   "exports": {

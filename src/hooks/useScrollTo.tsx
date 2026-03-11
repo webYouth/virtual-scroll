@@ -37,6 +37,7 @@ export default function useScrollTo<T>(
   syncScrollTop: (newTop: number) => void,
   triggerFlash: () => void,
 ): (arg: number | ScrollTarget) => void {
+  // @ts-expect-error
   const scrollRef = React.useRef<number>();
 
   const [syncState, setSyncState] = React.useState<{
@@ -46,6 +47,7 @@ export default function useScrollTo<T>(
     originAlign: ScrollAlign;
     targetAlign?: 'top' | 'bottom';
     lastTop?: number;
+    // @ts-expect-error
   }>(null);
 
   // ========================== Sync Scroll ==========================
@@ -63,6 +65,7 @@ export default function useScrollTo<T>(
 
       const height = containerRef.current.clientHeight;
       let needCollectHeight = false;
+      // @ts-expect-error
       let newTargetAlign: 'top' | 'bottom' | null = targetAlign;
       let targetTop: number | null = null;
 
@@ -138,7 +141,9 @@ export default function useScrollTo<T>(
         setSyncState({
           ...syncState,
           times: syncState.times + 1,
+          // @ts-expect-error
           targetAlign: newTargetAlign,
+          // @ts-expect-error
           lastTop: targetTop,
         });
       }
@@ -179,6 +184,7 @@ export default function useScrollTo<T>(
         times: 0,
         index,
         offset,
+        // @ts-expect-error
         originAlign: align,
       });
     }

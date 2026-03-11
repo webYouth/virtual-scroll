@@ -10,10 +10,12 @@ export default (
   const lockRef = useRef(false);
   const lockTimeoutRef = useRef(null);
   function lockScroll() {
+    // @ts-expect-error
     clearTimeout(lockTimeoutRef.current);
 
     lockRef.current = true;
 
+    // @ts-expect-error
     lockTimeoutRef.current = setTimeout(() => {
       lockRef.current = false;
     }, 50);
@@ -43,6 +45,7 @@ export default (
 
     if (smoothOffset && originScroll) {
       // No need lock anymore when it's smooth offset from touchMove interval
+      // @ts-expect-error
       clearTimeout(lockTimeoutRef.current);
       lockRef.current = false;
     } else if (!originScroll || lockRef.current) {

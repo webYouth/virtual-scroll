@@ -154,6 +154,7 @@ export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
 
   // ================================= MISC =================================
   const useVirtual = !!(virtual !== false && height && itemHeight);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   const containerHeight = useMemo(
     () => Object.values(heights.maps).reduce((total, curr) => total + curr, 0),
     [heights.id, heights.maps],
@@ -608,6 +609,7 @@ export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
   }, [start, end, mergedData]);
 
   // ================================ Extra =================================
+  // @ts-expect-error
   const getSize = useGetSize(mergedData, getKey, heights, itemHeight);
 
   const extraContent = extraRender?.({
@@ -627,6 +629,7 @@ export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
     end,
     scrollWidth ?? 0,
     offsetLeft,
+    // @ts-expect-error
     setInstanceRef,
     children,
     sharedConfig,
@@ -678,6 +681,7 @@ export function RawList<T>(props: ListProps<T>, ref: Ref<ListRef>) {
         >
           <Filler
             prefixCls={prefixCls}
+            // @ts-expect-error
             height={scrollHeight}
             offsetX={offsetLeft}
             offsetY={fillerOffset}

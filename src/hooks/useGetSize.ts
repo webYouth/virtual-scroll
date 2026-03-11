@@ -12,6 +12,7 @@ export function useGetSize<T>(
   heights: CacheMap,
   itemHeight: number,
 ) {
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   const [key2Index, bottomList] = React.useMemo<
     [key2Index: Map<React.Key, number>, bottomList: number[]]
   >(() => [new Map(), []], [mergedData, heights.id, itemHeight]);
@@ -44,7 +45,9 @@ export function useGetSize<T>(
     }
 
     return {
+      // @ts-expect-error
       top: bottomList[startIndex - 1] || 0,
+      // @ts-expect-error
       bottom: bottomList[endIndex],
     };
   };

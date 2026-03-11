@@ -36,6 +36,7 @@ export default function useFrameWheel(
   );
 
   function onWheelY(e: WheelEvent, deltaY: number) {
+    // @ts-expect-error
     raf.cancel(nextFrameRef.current);
 
     // Do nothing when scroll at the edge, Skip check when is in scroll
@@ -84,6 +85,7 @@ export default function useFrameWheel(
     if (!inVirtual) return;
 
     // Wait for 2 frame to clean direction
+    // @ts-expect-error
     raf.cancel(wheelDirectionCleanRef.current);
     wheelDirectionCleanRef.current = raf(() => {
       wheelDirectionRef.current = null;

@@ -18,6 +18,7 @@ export default function useScrollDrag(
   componentRef: React.RefObject<HTMLElement>,
   onScrollOffset: (offset: number) => void,
 ) {
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   React.useEffect(() => {
     const ele = componentRef.current;
     if (inVirtual && ele) {

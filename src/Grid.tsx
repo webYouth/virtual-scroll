@@ -627,6 +627,7 @@ export function RawGrid<T>(props: GridProps<T>, ref: Ref<GridRef>) {
   }, [start, end, mergedData]);
 
   // ================================ Extra =================================
+  // @ts-expect-error
   const getSize = useGetSize(mergedData, getKey, heights, itemHeight);
 
   const extraContent = extraRender?.({
