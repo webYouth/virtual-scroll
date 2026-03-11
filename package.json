@@ -1,5 +1,5 @@
 {
-  "name": "@webyouth/virtual-sroll",
+  "name": "react-virtual-scroll",
   "version": "1.0.0",
   "type": "module",
   "exports": {
