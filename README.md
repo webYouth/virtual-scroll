@@ -1,4 +1,4 @@
-# virtual-scroll
+# react-virtual-youth
 
 <p align="center">
   <strong>高性能的虚拟滚动列表/网格组件，支持React</strong>
@@ -6,13 +6,13 @@
 
 <p align="center">
   <a href="#readme" title="版本">
-    <img src="https://img.shields.io/npm/v/virtual-scroll.svg?style=flat-square" alt="npm version" />
+    <img src="https://img.shields.io/npm/v/react-virtual-youth.svg?style=flat-square" alt="npm version" />
   </a>
   <a href="#readme" title="许可证">
-    <img src="https://img.shields.io/npm/l/virtual-scroll.svg?style=flat-square" alt="license" />
+    <img src="https://img.shields.io/npm/l/react-virtual-youth.svg?style=flat-square" alt="license" />
   </a>
   <a href="#readme" title="下载量">
-    <img src="https://img.shields.io/npm/dm/virtual-scroll.svg?style=flat-square" alt="downloads" />
+    <img src="https://img.shields.io/npm/dm/react-virtual-youth.svg?style=flat-square" alt="downloads" />
   </a>
 </p>
 
@@ -29,19 +29,19 @@
 ## 📦 安装
 
 ```bash
-npm install @webyouth/virtual-scroll
+npm install react-virtual-youth
 ```
 
 或者
 
 ```bash
-yarn add @webyouth/virtual-scroll
+yarn add react-virtual-youth
 ```
 
 或者
 
 ```bash
-pnpm add @webyouth/virtual-scroll
+pnpm add react-virtual-youth
 ```
 
 ## 🔧 使用方法
@@ -50,7 +50,7 @@ pnpm add @webyouth/virtual-scroll
 
 ```jsx
 import React from 'react';
-import List from 'mfy-virtual-list';
+import List from 'react-virtual-youth';
 
 const BasicList = () => {
   const data = Array.from({ length: 10000 }, (_, index) => ({
@@ -93,7 +93,7 @@ export default BasicList;
 
 ```jsx
 import React from 'react';
-import Grid from 'mfy-virtual-list';
+import Grid from 'react-virtual-youth';
 
 const GridExample = () => {
   const data = Array.from({ length: 10000 }, (_, index) => ({
@@ -135,7 +135,7 @@ export default GridExample;
 
 ```jsx
 import React from 'react';
-import GroupGrid from 'mfy-virtual-list';
+import GroupGrid from 'react-virtual-youth';
 
 const GroupGridExample = () => {
   const groups = [
