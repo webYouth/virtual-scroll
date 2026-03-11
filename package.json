@@ -40,7 +40,7 @@
     "react": ">=16.9.0",
     "react-dom": ">=16.9.0"
   },
-  "private": true,
+  "private": false,
   "dependencies": {
     "@rc-component/resize-observer": "^1.0.1",
     "@rc-component/util": "^1.7.0",
