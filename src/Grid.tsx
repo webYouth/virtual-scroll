@@ -72,8 +72,10 @@ export interface GridProps<T> extends Omit<HTMLAttributes<any>, 'children'> {
   height?: number;
   itemHeight?: number;
   itemWidth?: number;
-  columnCount?: number; // Number of columns in the grid
-  columnWidth?: number; // Width of each column
+  columnCount?: number;
+  columnWidth?: number;
+  /** Gap between grid cells (px). Applied both horizontally and vertically. */
+  gap?: number;
   /** If not match virtual scroll condition, Set Grid still use height of container. */
   fullHeight?: boolean;
   itemKey: Key | ((item: T) => Key);
@@ -123,6 +125,7 @@ export function RawGrid<T>(props: GridProps<T>, ref: Ref<GridRef>) {
     itemWidth,
     columnCount,
     columnWidth,
+    gap = 0,
     fullHeight = true,
     style,
     data,
@@ -176,9 +179,10 @@ export function RawGrid<T>(props: GridProps<T>, ref: Ref<GridRef>) {
     () => {
       const totalItems = data?.length || 0;
       const rows = Math.ceil(totalItems / calculatedColumnCount);
-      return rows * (itemHeight || 0);
+      if (rows === 0) return 0;
+      return rows * (itemHeight || 0) + Math.max(0, rows - 1) * gap;
     },
-    [data?.length, itemHeight, calculatedColumnCount],
+    [data?.length, itemHeight, calculatedColumnCount, gap],
   );
   const inVirtual =
     useVirtual &&
@@ -282,25 +286,21 @@ export function RawGrid<T>(props: GridProps<T>, ref: Ref<GridRef>) {
     }
 
     const rowHeight = itemHeight || 0;
+    // pitch = distance from top of one row to top of the next (includes gap)
+    const pitch = rowHeight + gap;
     const rows = Math.ceil(dataLen / calculatedColumnCount);
-    
-    // Calculate which row the offsetTop falls in
-    const startRow = Math.floor(offsetTop / rowHeight);
+
+    const startRow = Math.floor(offsetTop / pitch);
     const endRow = Math.min(
-      Math.ceil((offsetTop + height) / rowHeight) + 1, // Add buffer row for smooth scrolling
-      rows
+      Math.ceil((offsetTop + height) / pitch) + 1,
+      rows,
     );
 
-    startIndex = startRow * calculatedColumnCount;
-    const endItemOfEndRow = endRow * calculatedColumnCount - 1;
-    endIndex = Math.min(endItemOfEndRow, dataLen - 1);
-    startOffset = startRow * rowHeight;
+    startIndex = Math.max(0, startRow * calculatedColumnCount);
+    endIndex = Math.min(endRow * calculatedColumnCount - 1, dataLen - 1);
+    startOffset = startRow * pitch;  // fillerOffset = visual top of the first visible row
 
-    // Ensure we have valid indices
-    startIndex = Math.max(0, startIndex);
-    endIndex = Math.min(dataLen - 1, endIndex);
-
-    const totalHeight = rows * rowHeight;
+    const totalHeight = rows > 0 ? rows * rowHeight + Math.max(0, rows - 1) * gap : 0;
 
     return {
       scrollHeight: totalHeight,
@@ -309,14 +309,15 @@ export function RawGrid<T>(props: GridProps<T>, ref: Ref<GridRef>) {
       offset: startOffset,
     };
   }, [
-    inVirtual, 
-    useVirtual, 
-    offsetTop, 
-    mergedData, 
-    heightUpdatedMark, 
-    height, 
-    itemHeight, 
-    calculatedColumnCount
+    inVirtual,
+    useVirtual,
+    offsetTop,
+    mergedData,
+    heightUpdatedMark,
+    height,
+    itemHeight,
+    gap,
+    calculatedColumnCount,
   ]);
 
   rangeRef.current.start = start;
@@ -641,20 +642,34 @@ export function RawGrid<T>(props: GridProps<T>, ref: Ref<GridRef>) {
   });
 
   // ================================ Render ================================
-  // Create grid layout for children
+  const pitch = (itemHeight || 0) + gap;
+  const colPitch = calculatedColumnWidth + gap;
+  const startRow = Math.floor(start / calculatedColumnCount);
+
+  // Calculate total grid dimensions with gap
+  const totalItems = mergedData.length;
+  const totalRows = Math.ceil(totalItems / calculatedColumnCount);
+  const gridHeight = totalRows > 0 ? totalRows * (itemHeight || 0) + Math.max(0, totalRows - 1) * gap : 0;
+  const gridWidth = calculatedColumnCount > 0
+    ? calculatedColumnCount * calculatedColumnWidth + Math.max(0, calculatedColumnCount - 1) * gap
+    : 0;
+
+  // Items are positioned relative to startRow so the Filler's translateY(fillerOffset)
+  // places them at the correct scroll position without double-offsetting.
   const gridChildren = useMemo(() => {
     const visibleItems = mergedData.slice(start, end + 1);
     return visibleItems.map((item, index) => {
       const eleIndex = start + index;
       const row = Math.floor(eleIndex / calculatedColumnCount);
       const col = eleIndex % calculatedColumnCount;
-      
+      const relTop = (row - startRow) * pitch;
+      const left = col * colPitch;
+
+      // Wrapper div handles absolute placement; children() receives only cell size
+      // so spreading `style` inside the render function doesn't double-position.
       const node = children(item, eleIndex, {
         style: {
           width: calculatedColumnWidth,
-          position: 'absolute',
-          top: row * (itemHeight || 0),
-          left: col * calculatedColumnWidth,
           height: itemHeight,
         },
         offsetX: 0,
@@ -666,8 +681,8 @@ export function RawGrid<T>(props: GridProps<T>, ref: Ref<GridRef>) {
           key={key}
           style={{
             position: 'absolute',
-            top: row * (itemHeight || 0),
-            left: col * calculatedColumnWidth,
+            top: relTop,
+            left,
             width: calculatedColumnWidth,
             height: itemHeight,
           }}
@@ -676,7 +691,8 @@ export function RawGrid<T>(props: GridProps<T>, ref: Ref<GridRef>) {
         </div>
       );
     });
-  }, [mergedData, start, end, calculatedColumnCount, calculatedColumnWidth, itemHeight, children, getKey]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mergedData, start, end, startRow, calculatedColumnCount, calculatedColumnWidth, itemHeight, gap, children, getKey]);
 
   let componentStyle: CSSProperties | null = null;
   if (height) {
@@ -704,11 +720,6 @@ export function RawGrid<T>(props: GridProps<T>, ref: Ref<GridRef>) {
     containerProps.dir = 'rtl';
   }
 
-  // Calculate grid container dimensions
-  const totalItems = mergedData.length;
-  const totalRows = Math.ceil(totalItems / calculatedColumnCount);
-  const gridHeight = totalRows * (itemHeight || 0);
-  const gridWidth = calculatedColumnCount * calculatedColumnWidth;
 
   return (
     <div

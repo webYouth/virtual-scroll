@@ -1,0 +1,81 @@
+import 'module';
+/*#__PURE__*/ import.meta.url;
+import { __webpack_require__ } from "./rslib-runtime.js";
+import "./1157.js";
+import "./5693.js";
+import { relative } from "./3278.js";
+const picomatch = __webpack_require__("../../node_modules/.pnpm/picomatch@4.0.3/node_modules/picomatch/index.js");
+var picomatch_default = /*#__PURE__*/ __webpack_require__.n(picomatch);
+const picocolors = __webpack_require__("../../node_modules/.pnpm/picocolors@1.1.1/node_modules/picocolors/picocolors.js");
+var picocolors_default = /*#__PURE__*/ __webpack_require__.n(picocolors);
+const THRESHOLD_KEYS = [
+    'lines',
+    'functions',
+    'statements',
+    'branches'
+];
+function checkThresholds({ coverageMap, thresholds, coverageProvider, rootPath }) {
+    if (!thresholds) return {
+        success: true,
+        message: ''
+    };
+    const failedThresholds = [];
+    const allFiles = coverageMap.files();
+    const thresholdGroup = [
+        {
+            statements: thresholds.statements,
+            functions: thresholds.functions,
+            branches: thresholds.branches,
+            lines: thresholds.lines,
+            name: 'global',
+            coverageMap,
+            perFile: false
+        }
+    ];
+    for (const key of Object.keys(thresholds)){
+        if (THRESHOLD_KEYS.includes(key) || 'object' != typeof thresholds[key]) continue;
+        const globCoverageMap = coverageProvider.createCoverageMap();
+        const matcher = picomatch_default()(key);
+        const matchedFiles = allFiles.filter((file)=>matcher(relative(rootPath, file)));
+        if (!matchedFiles.length) {
+            failedThresholds.push(`${picocolors_default().red('Error')}: coverage data for "${key}" was not found`);
+            continue;
+        }
+        for (const file of matchedFiles){
+            const fileCoverage = coverageMap.fileCoverageFor(file);
+            globCoverageMap.addFileCoverage(fileCoverage);
+        }
+        thresholdGroup.push({
+            ...thresholds[key],
+            name: key,
+            coverageMap: globCoverageMap
+        });
+    }
+    const check = (name, type, actual, expected, file)=>{
+        let errorMsg = '';
+        if (void 0 !== expected) {
+            if (expected < 0) {
+                const uncovered = actual.total - actual.covered;
+                if (uncovered > -expected) errorMsg += `uncovered ${name} ${picocolors_default().red(`${uncovered}`)} exceeds maximum ${'global' === type ? 'global' : `"${type}"`} threshold allowed ${picocolors_default().yellow(`${-expected}`)}`;
+            } else if (actual.pct < expected) errorMsg += `coverage for ${name} ${picocolors_default().red(`${actual.pct}%`)} does not meet ${'global' === type ? 'global' : `"${type}"`} threshold ${picocolors_default().yellow(`${expected}%`)}`;
+        }
+        if (errorMsg) failedThresholds.push(`${picocolors_default().red('Error')}: ${file ? `${relative(rootPath, file)} ` : ''}${errorMsg}`);
+    };
+    thresholdGroup.forEach(({ name, coverageMap, ...thresholds })=>{
+        const summaries = thresholds.perFile ? coverageMap.files().map((file)=>({
+                file,
+                summary: coverageMap.fileCoverageFor(file).toSummary()
+            })) : [
+            {
+                file: '',
+                summary: coverageMap.getCoverageSummary()
+            }
+        ];
+        for (const { summary, file } of summaries)for (const key of THRESHOLD_KEYS)if (void 0 !== thresholds[key]) check(key, name, summary[key], thresholds[key], file);
+    });
+    return {
+        success: 0 === failedThresholds.length,
+        message: failedThresholds.join('\n')
+    };
+}
+export { checkThresholds };

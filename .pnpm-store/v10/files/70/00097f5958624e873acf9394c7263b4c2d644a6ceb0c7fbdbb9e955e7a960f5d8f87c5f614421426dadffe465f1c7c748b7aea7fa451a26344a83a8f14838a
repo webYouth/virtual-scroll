@@ -1,0 +1,3 @@
+import type { LoaderDefinitionFunction } from '@rspack/core';
+declare const StyleInineLoader: LoaderDefinitionFunction;
+export default StyleInineLoader;

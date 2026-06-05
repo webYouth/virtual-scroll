@@ -1,0 +1,25 @@
+import { type RslibConfig } from '@rslib/core';
+import type { ExtendConfigFn } from '@rstest/core';
+export interface WithRslibConfigOptions {
+    /**
+     * `cwd` passed to loadConfig of Rslib
+     * @default process.cwd()
+     */
+    cwd?: string;
+    /**
+     * Path to rslib config file
+     * @default './rslib.config.ts'
+     */
+    configPath?: string;
+    /**
+     * The lib config id in `lib` field to use, will be merged with the other fields in the config.
+     * Set to a string to use the lib config with matching id.
+     * @default undefined
+     */
+    libId?: string;
+    /**
+     * Modify rslib config before converting to rstest config
+     */
+    modifyLibConfig?: (libConfig: RslibConfig) => RslibConfig;
+}
+export declare function withRslibConfig(options?: WithRslibConfigOptions): ExtendConfigFn;

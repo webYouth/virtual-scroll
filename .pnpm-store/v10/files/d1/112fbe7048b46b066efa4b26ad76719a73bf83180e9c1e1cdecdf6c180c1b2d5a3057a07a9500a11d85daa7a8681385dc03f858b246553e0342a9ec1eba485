@@ -1,0 +1,9 @@
+import type { RslibInstance } from './types';
+export declare function getWatchFilesForRestart(rslib: RslibInstance): string[] | undefined;
+export declare function watchFilesForRestart(files: string[] | undefined, restart: () => Promise<void>): Promise<void>;
+type Cleaner = () => Promise<unknown> | unknown;
+/**
+ * Add a cleaner to handle side effects
+ */
+export declare const onBeforeRestart: (cleaner: Cleaner) => void;
+export {};

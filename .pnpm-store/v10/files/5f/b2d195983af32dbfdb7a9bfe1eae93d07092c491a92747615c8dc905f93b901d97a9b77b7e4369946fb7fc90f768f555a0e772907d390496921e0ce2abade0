@@ -1,0 +1,149 @@
+import 'module';
+/*#__PURE__*/ import.meta.url;
+import { __webpack_require__ } from "./rslib-runtime.js";
+import "./5693.js";
+import { createRequire as external_node_module_createRequire } from "./4881.js";
+import { pathToFileURL } from "./6198.js";
+import { node_vm, asModule, shouldInterop, interopModule } from "./0~3346.js";
+import { posix, logger_logger } from "./3278.js";
+const external_node_path_ = __webpack_require__("node:path");
+let latestAssetFiles = {};
+const updateLatestAssetFiles = (assetFiles)=>{
+    latestAssetFiles = assetFiles;
+};
+const isRelativePath = (p)=>/^\.\.?\//.test(p);
+const createRequire = (filename, distPath, rstestContext, assetFiles, interopDefault)=>{
+    const _require = (()=>{
+        try {
+            return external_node_module_createRequire(filename);
+        } catch (_err) {
+            return external_node_module_createRequire(distPath);
+        }
+    })();
+    const require = (id)=>{
+        const currentDirectory = posix.dirname(distPath);
+        const joinedPath = isRelativePath(id) ? posix.join(currentDirectory, id) : id;
+        const content = assetFiles[joinedPath] || latestAssetFiles[joinedPath];
+        if (content) try {
+            return cacheableLoadModule({
+                codeContent: content,
+                testPath: joinedPath,
+                distPath: joinedPath,
+                rstestContext,
+                assetFiles,
+                interopDefault
+            });
+        } catch (err) {
+            logger_logger.error(`load file ${joinedPath} failed:\n`, err instanceof Error ? err.message : err);
+        }
+        const resolved = _require.resolve(id);
+        return _require(resolved);
+    };
+    require.resolve = _require.resolve;
+    require.main = _require.main;
+    return require;
+};
+const defineRstestDynamicImport = ({ testPath, interopDefault, returnModule = false })=>async (specifier, importAttributes)=>{
+        const resolvedPath = (0, external_node_path_.isAbsolute)(specifier) ? pathToFileURL(specifier) : import.meta.resolve(specifier, pathToFileURL(testPath));
+        const modulePath = 'string' == typeof resolvedPath ? resolvedPath : resolvedPath.pathname;
+        if (importAttributes?.with?.rstest) delete importAttributes.with.rstest;
+        if (modulePath.endsWith('.json')) {
+            const importedModule = await import(modulePath, {
+                with: {
+                    type: 'json'
+                }
+            });
+            return returnModule ? asModule(importedModule.default, importedModule.default) : {
+                ...importedModule.default,
+                default: importedModule.default
+            };
+        }
+        const importedModule = await import(modulePath, importAttributes);
+        if (shouldInterop({
+            interopDefault,
+            modulePath,
+            mod: importedModule
+        })) {
+            const { mod, defaultExport } = interopModule(importedModule);
+            if (returnModule) return asModule(mod, defaultExport);
+            return new Proxy(mod, {
+                get (mod, prop) {
+                    if ('default' === prop) return defaultExport;
+                    return mod[prop] ?? defaultExport?.[prop];
+                },
+                has (mod, prop) {
+                    if ('default' === prop) return void 0 !== defaultExport;
+                    return prop in mod || defaultExport && prop in defaultExport;
+                },
+                getOwnPropertyDescriptor (mod, prop) {
+                    const descriptor = Reflect.getOwnPropertyDescriptor(mod, prop);
+                    if (descriptor) return descriptor;
+                    if ('default' === prop && void 0 !== defaultExport) return {
+                        value: defaultExport,
+                        enumerable: true,
+                        configurable: true
+                    };
+                }
+            });
+        }
+        return importedModule;
+    };
+const loadModule = ({ codeContent, distPath, testPath, rstestContext, assetFiles, interopDefault })=>{
+    const fileDir = posix.dirname(testPath);
+    const localModule = {
+        children: [],
+        exports: {},
+        filename: testPath,
+        id: testPath,
+        isPreloading: false,
+        loaded: false,
+        path: fileDir
+    };
+    const context = {
+        module: localModule,
+        exports: localModule.exports,
+        require: createRequire(testPath, distPath, rstestContext, assetFiles, interopDefault),
+        readWasmFile: (wasmPath, callback)=>{
+            const joinedPath = isRelativePath(wasmPath) ? posix.join(posix.dirname(distPath), wasmPath) : wasmPath;
+            const content = assetFiles[posix.normalize(joinedPath)] || latestAssetFiles[posix.normalize(joinedPath)];
+            if (content) callback(null, Buffer.from(content, 'base64'));
+            else callback(new Error(`WASM file ${joinedPath} not found in asset files.`));
+        },
+        __rstest_dynamic_import__: defineRstestDynamicImport({
+            testPath,
+            interopDefault
+        }),
+        __dirname: fileDir,
+        __filename: testPath,
+        ...rstestContext
+    };
+    const codeDefinition = `'use strict';(${Object.keys(context).join(',')})=>{`;
+    const code = `${codeDefinition}${codeContent}\n}`;
+    const fn = node_vm.runInThisContext(code, {
+        filename: distPath,
+        lineOffset: 0,
+        columnOffset: -codeDefinition.length,
+        importModuleDynamically: (specifier, _referencer, importAttributes)=>defineRstestDynamicImport({
+                testPath,
+                interopDefault,
+                returnModule: true
+            })(specifier, importAttributes)
+    });
+    fn(...Object.values(context));
+    return localModule.exports;
+};
+const moduleCache = new Map();
+const cacheableLoadModule = ({ codeContent, distPath, testPath, rstestContext, assetFiles, interopDefault })=>{
+    if (moduleCache.has(testPath)) return moduleCache.get(testPath);
+    const mod = loadModule({
+        codeContent,
+        distPath,
+        testPath,
+        rstestContext,
+        assetFiles,
+        interopDefault
+    });
+    moduleCache.set(testPath, mod);
+    return mod;
+};
+export { cacheableLoadModule, loadModule, updateLatestAssetFiles };

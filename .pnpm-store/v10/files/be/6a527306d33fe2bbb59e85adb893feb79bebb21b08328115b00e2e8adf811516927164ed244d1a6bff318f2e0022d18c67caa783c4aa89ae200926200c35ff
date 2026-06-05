@@ -1,0 +1,43 @@
+import 'module';
+/*#__PURE__*/ import.meta.url;
+import { __webpack_require__ } from "./rslib-runtime.js";
+import "./5693.js";
+import { createRequire } from "./4881.js";
+import { pathToFileURL } from "./6198.js";
+import "./1157.js";
+const picocolors = __webpack_require__("../../node_modules/.pnpm/picocolors@1.1.1/node_modules/picocolors/picocolors.js");
+var picocolors_default = /*#__PURE__*/ __webpack_require__.n(picocolors);
+const CoverageProviderMap = {
+    istanbul: '@rstest/coverage-istanbul'
+};
+const loadCoverageProvider = async (options, root)=>{
+    const rootPath = pathToFileURL(root).toString();
+    const moduleName = CoverageProviderMap[options.provider || 'istanbul'];
+    if (!moduleName) throw new Error(`Unknown coverage provider: ${options.provider}`);
+    try {
+        const require = createRequire(rootPath);
+        const modulePath = require.resolve(moduleName, {
+            paths: [
+                rootPath
+            ]
+        });
+        const { pluginCoverage, CoverageProvider } = await import(pathToFileURL(modulePath).toString());
+        return {
+            pluginCoverage,
+            CoverageProvider
+        };
+    } catch  {
+        const error = new Error(`Failed to load coverage provider module: ${picocolors_default().cyan(moduleName)} in ${picocolors_default().underline(root)}, please make sure it is installed.\n`);
+        error.stack = '';
+        throw error;
+    }
+};
+async function createCoverageProvider(options, root) {
+    if (!options.enabled) return null;
+    if (!options.provider || CoverageProviderMap[options.provider]) {
+        const { CoverageProvider } = await loadCoverageProvider(options, root);
+        return new CoverageProvider(options);
+    }
+    throw new Error(`Unknown coverage provider: ${options.provider}`);
+}
+export { createCoverageProvider, loadCoverageProvider };

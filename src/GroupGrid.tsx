@@ -81,7 +81,9 @@ export interface GroupGridProps<T> extends Omit<HTMLAttributes<any>, 'children'>
   itemWidth?: number;
   columnCount?: number; // Number of columns in the grid
   columnWidth?: number; // Width of each column
-  groupHeaderHeight?: number; // Height of group header
+  groupHeaderHeight?: number;
+  /** Gap between grid cells in pixels (applied both horizontally and vertically within a group). */
+  gap?: number;
   /** If not match virtual scroll condition, Set GroupGrid still use height of container. */
   fullHeight?: boolean;
   groupKey: Key | ((group: GroupItem<T>) => Key);
@@ -136,6 +138,7 @@ export function RawGroupGrid<T>(props: GroupGridProps<T>, ref: Ref<GroupGridRef>
     columnCount,
     columnWidth,
     groupHeaderHeight = 40,
+    gap = 0,
     fullHeight = true,
     style,
     groups,
@@ -200,14 +203,13 @@ export function RawGroupGrid<T>(props: GroupGridProps<T>, ref: Ref<GroupGridRef>
   const containerHeight = useMemo(
     () => {
       if (!groups || groups.length === 0) return 0;
-      
-      return groups.reduce((totalHeight, group) => {
-        const itemsCount = group.children.length;
-        const rows = Math.ceil(itemsCount / calculatedColumnCount);
-        return totalHeight + groupHeaderHeight + (rows * itemHeight);
+      return groups.reduce((total, group) => {
+        const rows = Math.ceil(group.children.length / calculatedColumnCount);
+        const itemsHeight = rows > 0 ? rows * itemHeight + Math.max(0, rows - 1) * gap : 0;
+        return total + groupHeaderHeight + itemsHeight;
       }, 0);
     },
-    [groups, groupHeaderHeight, itemHeight, calculatedColumnCount],
+    [groups, groupHeaderHeight, itemHeight, gap, calculatedColumnCount],
   );
   
   const inVirtual = useVirtual && groups && containerHeight > (height || 0);
@@ -321,9 +323,9 @@ export function RawGroupGrid<T>(props: GroupGridProps<T>, ref: Ref<GroupGridRef>
     
     for (let groupIndex = 0; groupIndex < mergedGroups.length; groupIndex++) {
       const group = mergedGroups[groupIndex];
-      const itemsCount = group.children.length;
-      const rows = Math.ceil(itemsCount / calculatedColumnCount);
-      const groupHeight = groupHeaderHeight + (rows * itemHeight);
+      const rows = Math.ceil(group.children.length / calculatedColumnCount);
+      const itemsHeight = rows > 0 ? rows * itemHeight + Math.max(0, rows - 1) * gap : 0;
+      const groupHeight = groupHeaderHeight + itemsHeight;
       
       // Check if the group is in the visible range
       const groupEndOffset = currentOffset + groupHeight;
@@ -339,12 +341,12 @@ export function RawGroupGrid<T>(props: GroupGridProps<T>, ref: Ref<GroupGridRef>
       
       // Add items to visible list if the group is visible
       if (currentOffset <= offsetTop + (height || 0) && groupEndOffset >= offsetTop) {
+        const itemsCount = group.children.length;
         visibleGroups.push({
           group,
           startIndex: visibleItems.length,
-          endIndex: visibleItems.length + itemsCount - 1
+          endIndex: visibleItems.length + itemsCount - 1,
         });
-        
         for (let itemIndex = 0; itemIndex < itemsCount; itemIndex++) {
           visibleItems.push({
             item: group.children[itemIndex],
@@ -381,8 +383,9 @@ export function RawGroupGrid<T>(props: GroupGridProps<T>, ref: Ref<GroupGridRef>
     heightUpdatedMark,
     height,
     itemHeight,
+    gap,
     calculatedColumnCount,
-    groupHeaderHeight
+    groupHeaderHeight,
   ]);
 
   rangeRef.current.start = start;
@@ -714,36 +717,30 @@ export function RawGroupGrid<T>(props: GroupGridProps<T>, ref: Ref<GroupGridRef>
   });
 
   // ================================ Render ================================
-  // Create grouped grid layout for children
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
-      const groupedGridChildren = useMemo(() => {
-    if (!visibleItems || visibleItems.length === 0) return null;
+  const pitch = itemHeight + gap;        // row-to-row distance within a group
+  const colPitch = calculatedColumnWidth + gap; // col-to-col distance
 
+  // Items are positioned relative to the filler group start (fillerOffset).
+  // The Filler applies translateY(fillerOffset) so there is no double-offset.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+  const groupedGridChildren = useMemo(() => {
     const elements: ReactElement[] = [];
-    
-    let currentOffsetY = 0;
-    
-    // Calculate the offset for the visible range
+    // relativeOffsetY accumulates from 0 (= fillerOffset in absolute coords)
+    let relativeOffsetY = 0;
+
     for (let groupIndex = start; groupIndex <= end && groupIndex < mergedGroups.length; groupIndex++) {
       const group = mergedGroups[groupIndex];
-      const itemsCount = group.children.length;
-      const rows = Math.ceil(itemsCount / calculatedColumnCount);
-      const groupHeight = groupHeaderHeight + (rows * itemHeight);
-      
-      // If this group is not in the visible range yet, skip to next
-      if (currentOffsetY + groupHeight < offsetTop) {
-        currentOffsetY += groupHeight;
-        continue;
-      }
-      
-      // Add group header
-      const groupKey = getGroupKey(group);
+      const rows = Math.ceil(group.children.length / calculatedColumnCount);
+      const itemsHeight = rows > 0 ? rows * itemHeight + Math.max(0, rows - 1) * gap : 0;
+      const groupHeight = groupHeaderHeight + itemsHeight;
+      const gKey = getGroupKey(group);
+
       elements.push(
         <div
-          key={`header-${groupKey}`}
+          key={`header-${gKey}`}
           style={{
             position: 'absolute',
-            top: currentOffsetY,
+            top: relativeOffsetY,
             left: 0,
             width: '100%',
             height: groupHeaderHeight,
@@ -757,34 +754,30 @@ export function RawGroupGrid<T>(props: GroupGridProps<T>, ref: Ref<GroupGridRef>
           {groupHeaderRender ? groupHeaderRender(group, groupIndex) : group.title || `Group ${groupIndex + 1}`}
         </div>
       );
-      
-      currentOffsetY += groupHeaderHeight;
 
-      // Add grid items for this group
+      const itemsBaseY = relativeOffsetY + groupHeaderHeight;
       const groupItems = group.children;
-      for (let itemIndex = 0; itemIndex < groupItems.length; itemIndex++) {
-        const item = groupItems[itemIndex];
-        const itemEleIndex = groupIndex * 10000 + itemIndex; // Use a unique index
-        const row = Math.floor(itemIndex / calculatedColumnCount);
-        const col = itemIndex % calculatedColumnCount;
-        
+      for (let itemIdx = 0; itemIdx < groupItems.length; itemIdx++) {
+        const item = groupItems[itemIdx];
+        const itemEleIndex = groupIndex * 10000 + itemIdx;
+        const row = Math.floor(itemIdx / calculatedColumnCount);
+        const col = itemIdx % calculatedColumnCount;
+        const relTop = itemsBaseY + row * pitch;
+        const left = col * colPitch;
+
+        // Wrapper div handles placement; children() gets only cell size
         const node = children(item, itemEleIndex, {
-          style: {
-            width: calculatedColumnWidth,
-            height: itemHeight,
-          },
+          style: { width: calculatedColumnWidth, height: itemHeight },
           offsetX: 0,
         }) as ReactElement;
 
-        const itemKey = getItemKey(item);
-        
         elements.push(
           <div
-            key={`item-${groupKey}-${itemKey}`}
+            key={`item-${gKey}-${getItemKey(item)}`}
             style={{
               position: 'absolute',
-              top: currentOffsetY + row * itemHeight,
-              left: col * calculatedColumnWidth,
+              top: relTop,
+              left,
               width: calculatedColumnWidth,
               height: itemHeight,
             }}
@@ -793,24 +786,24 @@ export function RawGroupGrid<T>(props: GroupGridProps<T>, ref: Ref<GroupGridRef>
           </div>
         );
       }
-      
-      currentOffsetY += rows * itemHeight;
+
+      relativeOffsetY += groupHeight;
     }
 
     return elements;
   }, [
-    mergedGroups, 
-    start, 
-    end, 
-    calculatedColumnCount, 
-    calculatedColumnWidth, 
+    mergedGroups,
+    start,
+    end,
+    calculatedColumnCount,
+    calculatedColumnWidth,
     itemHeight,
+    gap,
     groupHeaderHeight,
-    children, 
-    getItemKey, 
+    children,
+    getItemKey,
     getGroupKey,
     groupHeaderRender,
-    offsetTop
   ]);
 
   let componentStyle: CSSProperties | null = null;
@@ -839,18 +832,10 @@ export function RawGroupGrid<T>(props: GroupGridProps<T>, ref: Ref<GroupGridRef>
     containerProps.dir = 'rtl';
   }
 
-  // Calculate total grid dimensions
-  const totalHeight = useMemo(() => {
-    if (!mergedGroups || mergedGroups.length === 0) return 0;
-    
-    return mergedGroups.reduce((totalHeight, group) => {
-      const itemsCount = group.children.length;
-      const rows = Math.ceil(itemsCount / calculatedColumnCount);
-      return totalHeight + groupHeaderHeight + (rows * itemHeight);
-    }, 0);
-  }, [mergedGroups, groupHeaderHeight, itemHeight, calculatedColumnCount]);
-
-  const gridWidth = calculatedColumnCount * calculatedColumnWidth;
+  const totalHeight = containerHeight;  // already computed above with gap
+  const gridWidth = calculatedColumnCount > 0
+    ? calculatedColumnCount * calculatedColumnWidth + Math.max(0, calculatedColumnCount - 1) * gap
+    : 0;
 
   return (
     <div

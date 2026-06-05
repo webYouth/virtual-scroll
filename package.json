@@ -4,11 +4,19 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.js"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.js"
+    },
+    "./vue": {
+      "types": "./dist/vue/index.d.ts",
+      "import": "./dist/vue/index.js"
     }
   },
-  "types": "./dist/index.d.ts",
+  "types": "./dist/react/index.d.ts",
   "files": [
     "dist"
   ],
@@ -16,12 +24,14 @@
     "build": "rslib build",
     "check": "biome check --write",
     "dev": "rslib build --watch",
+    "playground": "cd playground && pnpm dev",
     "format": "biome format --write",
     "test": "rstest"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.8",
     "@rsbuild/plugin-react": "^1.4.2",
+    "@rsbuild/plugin-vue": "^1.2.9",
     "@rslib/core": "^0.19.0",
     "@rstest/adapter-rslib": "^0.1.0",
     "@rstest/core": "^0.7.7",
@@ -30,15 +40,29 @@
     "@types/node": "^25.0.3",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "element-plus": "^2.14.1",
     "happy-dom": "^20.0.11",
     "rc-animate": "^3.1.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vue": "^3.5.35"
   },
   "peerDependencies": {
     "react": ">=16.9.0",
-    "react-dom": ">=16.9.0"
+    "react-dom": ">=16.9.0",
+    "vue": ">=3.2.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    }
   },
   "private": false,
   "dependencies": {

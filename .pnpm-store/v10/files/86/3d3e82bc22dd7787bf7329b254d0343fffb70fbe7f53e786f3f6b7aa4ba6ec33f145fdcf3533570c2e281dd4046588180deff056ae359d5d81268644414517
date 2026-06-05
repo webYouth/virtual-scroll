@@ -1,0 +1,1118 @@
+import 'module';
+/*#__PURE__*/ import.meta.url;
+import { __webpack_require__ } from "./rslib-runtime.js";
+import node_events from "node:events";
+import { Tinypool } from "tinypool";
+import node_inspector from "node:inspector";
+import "./5693.js";
+import { node_process, basename, isDebug, dirname, posix, resolve as pathe_M_eThtNZ_resolve, join } from "./3278.js";
+import { fileURLToPath } from "./6198.js";
+import { node_v8, createBirpc } from "./3216.js";
+import { serializableConfig, bgColor, TEMP_RSTEST_OUTPUT_DIR, TEMP_RSTEST_OUTPUT_DIR_GLOB, castArray, ADDITIONAL_NODE_BUILTINS, needFlagExperimentalDetectModule } from "./1157.js";
+import { isBuiltin } from "./4881.js";
+import { core_logger, createRsbuild } from "./9131.js";
+const DefaultMaxHeapSize = 1073741824;
+function memory_isMemorySufficient(options) {
+    const { memoryThreshold = 0.7, maxHeapSize = DefaultMaxHeapSize } = options || {};
+    if (!node_process?.memoryUsage) return true;
+    const memoryUsage = node_process.memoryUsage();
+    const heapUsed = memoryUsage.heapUsed;
+    const heapTotal = memoryUsage.heapTotal;
+    const memoryUsageRatio = heapUsed / heapTotal;
+    const isMemorySufficient = memoryUsageRatio < memoryThreshold && heapUsed < maxHeapSize;
+    return isMemorySufficient;
+}
+const forks_filename = fileURLToPath(import.meta.url);
+const forks_dirname = dirname(forks_filename);
+function createChannel(rpcMethods) {
+    const emitter = new node_events();
+    const cleanup = ()=>emitter.removeAllListeners();
+    const events = {
+        message: 'message',
+        response: 'response'
+    };
+    const channel = {
+        onMessage: (callback)=>{
+            emitter.on(events.message, callback);
+        },
+        postMessage: (message)=>{
+            emitter.emit(events.response, message);
+        }
+    };
+    createBirpc(rpcMethods, {
+        serialize: node_v8.serialize,
+        deserialize: (v)=>node_v8.deserialize(Buffer.from(v)),
+        post (v) {
+            emitter.emit(events.message, v);
+        },
+        on (fn) {
+            emitter.on(events.response, fn);
+        }
+    });
+    return {
+        channel,
+        cleanup
+    };
+}
+const createForksPool = (poolOptions)=>{
+    const { maxWorkers: maxThreads, minWorkers: minThreads, env, execArgv = [], isolate = true } = poolOptions;
+    const options = {
+        runtime: 'child_process',
+        filename: pathe_M_eThtNZ_resolve(forks_dirname, './worker.js'),
+        env,
+        execArgv,
+        maxThreads,
+        minThreads,
+        concurrentTasksPerWorker: 1,
+        isolateWorkers: isolate
+    };
+    const pool = new Tinypool(options);
+    const destroy = pool.destroy.bind(pool);
+    process.on('SIGTERM', destroy);
+    return {
+        name: 'forks',
+        runTest: async ({ options, rpcMethods })=>{
+            const { channel, cleanup } = createChannel(rpcMethods);
+            try {
+                return await pool.run(options, {
+                    channel
+                });
+            } finally{
+                cleanup();
+            }
+        },
+        collectTests: async ({ options, rpcMethods })=>{
+            const { channel, cleanup } = createChannel(rpcMethods);
+            try {
+                return await pool.run(options, {
+                    channel
+                });
+            } finally{
+                cleanup();
+            }
+        },
+        close: ()=>{
+            process.off('SIGTERM', destroy);
+            return destroy();
+        }
+    };
+};
+const external_node_os_ = __webpack_require__("node:os");
+const picocolors = __webpack_require__("../../node_modules/.pnpm/picocolors@1.1.1/node_modules/picocolors/picocolors.js");
+var picocolors_default = /*#__PURE__*/ __webpack_require__.n(picocolors);
+const getNumCpus = ()=>external_node_os_["default"].availableParallelism?.() ?? external_node_os_["default"].cpus().length;
+const parseWorkers = (maxWorkers)=>{
+    const parsed = Number.parseInt(maxWorkers.toString(), 10);
+    if ('string' == typeof maxWorkers && maxWorkers.trim().endsWith('%')) {
+        const numCpus = getNumCpus();
+        const workers = Math.floor(parsed / 100 * numCpus);
+        return Math.max(workers, 1);
+    }
+    return parsed > 0 ? parsed : 1;
+};
+const getRuntimeConfig = (context)=>{
+    const { testNamePattern, testTimeout, passWithNoTests, retry, globals, clearMocks, resetMocks, restoreMocks, unstubEnvs, unstubGlobals, maxConcurrency, printConsoleTrace, disableConsoleIntercept, testEnvironment, hookTimeout, isolate, coverage, snapshotFormat, env, logHeapUsage, bail, chaiConfig, includeTaskLocation } = context.normalizedConfig;
+    return {
+        env: {
+            ...process.env,
+            ...env
+        },
+        testNamePattern,
+        testTimeout,
+        hookTimeout,
+        passWithNoTests,
+        retry,
+        globals,
+        clearMocks,
+        resetMocks,
+        restoreMocks,
+        unstubEnvs,
+        unstubGlobals,
+        maxConcurrency,
+        printConsoleTrace,
+        disableConsoleIntercept,
+        testEnvironment,
+        isolate,
+        coverage: {
+            ...coverage,
+            reporters: []
+        },
+        snapshotFormat,
+        logHeapUsage,
+        bail,
+        chaiConfig,
+        includeTaskLocation
+    };
+};
+const filterAssetsByEntry = async (entryInfo, getAssetFiles, getSourceMaps, setupAssets)=>{
+    const assetNames = Array.from(new Set([
+        ...entryInfo.files,
+        ...setupAssets
+    ]));
+    const neededFiles = await getAssetFiles(assetNames);
+    const neededSourceMaps = await getSourceMaps(assetNames);
+    return {
+        assetFiles: neededFiles,
+        sourceMaps: neededSourceMaps
+    };
+};
+const createPool = async ({ context, recommendWorkerCount = 1 / 0 })=>{
+    const execArgv = process.execArgv.filter((execArg)=>execArg.startsWith('--perf') || execArg.startsWith('--cpu-prof') || execArg.startsWith('--heap-prof') || execArg.startsWith('--diagnostic-dir'));
+    const numCpus = getNumCpus();
+    const { normalizedConfig: { pool: poolOptions, isolate }, reporters } = context;
+    const threadsCount = 'watch' === context.command ? Math.max(Math.floor(numCpus / 2), 1) : Math.max(numCpus - 1, 1);
+    const recommendCount = 'watch' === context.command ? threadsCount : Math.min(recommendWorkerCount, threadsCount);
+    const maxWorkers = poolOptions.maxWorkers ? parseWorkers(poolOptions.maxWorkers) : recommendCount;
+    const minWorkers = poolOptions.minWorkers ? parseWorkers(poolOptions.minWorkers) : maxWorkers < recommendCount ? maxWorkers : recommendCount;
+    if (maxWorkers < minWorkers) throw `Invalid pool configuration: maxWorkers(${maxWorkers}) cannot be less than minWorkers(${minWorkers}).`;
+    const pool = createForksPool({
+        ...poolOptions,
+        isolate,
+        maxWorkers,
+        minWorkers,
+        execArgv: [
+            ...poolOptions?.execArgv ?? [],
+            ...execArgv,
+            '--experimental-vm-modules',
+            '--experimental-import-meta-resolve',
+            '--no-warnings',
+            needFlagExperimentalDetectModule() ? '--experimental-detect-module' : void 0
+        ].filter(Boolean),
+        env: {
+            ...process.env,
+            NODE_ENV: 'test',
+            FORCE_COLOR: '1' === process.env.NO_COLOR ? '0' : '1'
+        }
+    });
+    const rpcMethods = {
+        onTestCaseStart: async (test)=>{
+            context.stateManager.onTestCaseStart(test);
+            Promise.all(reporters.map((reporter)=>reporter.onTestCaseStart?.(test)));
+        },
+        onTestCaseResult: async (result)=>{
+            context.stateManager.onTestCaseResult(result);
+            await Promise.all(reporters.map((reporter)=>reporter.onTestCaseResult?.(result)));
+        },
+        getCountOfFailedTests: async ()=>context.stateManager.getCountOfFailedTests(),
+        onConsoleLog: async (log)=>{
+            await Promise.all(reporters.map((reporter)=>reporter.onUserConsoleLog?.(log)));
+        },
+        onTestFileStart: async (test)=>{
+            context.stateManager.onTestFileStart(test.testPath);
+            await Promise.all(reporters.map((reporter)=>reporter.onTestFileStart?.(test)));
+        },
+        onTestFileReady: async (test)=>{
+            await Promise.all(reporters.map((reporter)=>reporter.onTestFileReady?.(test)));
+        },
+        onTestSuiteStart: async (test)=>{
+            await Promise.all(reporters.map((reporter)=>reporter.onTestSuiteStart?.(test)));
+        },
+        onTestSuiteResult: async (result)=>{
+            await Promise.all(reporters.map((reporter)=>reporter.onTestSuiteResult?.(result)));
+        },
+        resolveSnapshotPath: (testPath)=>{
+            const snapExtension = '.snap';
+            const resolver = context.normalizedConfig.resolveSnapshotPath || (()=>join(dirname(testPath), '__snapshots__', `${basename(testPath)}${snapExtension}`));
+            const snapshotPath = resolver(testPath, snapExtension);
+            return snapshotPath;
+        }
+    };
+    return {
+        runTests: async ({ entries, getAssetFiles, getSourceMaps, setupEntries, project, updateSnapshot })=>{
+            const projectName = context.normalizedConfig.name;
+            const runtimeConfig = getRuntimeConfig(project);
+            const setupAssets = setupEntries.flatMap((entry)=>entry.files || []);
+            const results = await Promise.all(entries.map(async (entryInfo, index)=>{
+                const result = await pool.runTest({
+                    options: {
+                        entryInfo,
+                        context: {
+                            outputModule: project.outputModule,
+                            taskId: index + 1,
+                            project: projectName,
+                            rootPath: context.rootPath,
+                            projectRoot: project.rootPath,
+                            runtimeConfig: serializableConfig(runtimeConfig)
+                        },
+                        type: 'run',
+                        setupEntries,
+                        updateSnapshot,
+                        assets: memory_isMemorySufficient() ? await filterAssetsByEntry(entryInfo, getAssetFiles, getSourceMaps, setupAssets) : void 0
+                    },
+                    rpcMethods: {
+                        ...rpcMethods,
+                        getAssetsByEntry: async ()=>filterAssetsByEntry(entryInfo, getAssetFiles, getSourceMaps, setupAssets)
+                    }
+                }).catch((err)=>{
+                    err.fullStack = true;
+                    if (err instanceof Error) {
+                        if (err.message.includes('Worker exited unexpectedly')) delete err.stack;
+                        const runningModule = context.stateManager.runningModules.get(entryInfo.testPath);
+                        if (runningModule?.runningTests.length) {
+                            const getCaseName = (test)=>`"${test.name}"${test.parentNames?.length ? ` (Under suite: ${test.parentNames?.join(' > ')})` : ''}`;
+                            if (runningModule?.runningTests.length === 1) err.message += `\n\n${picocolors_default().white(`Maybe relevant test case: ${getCaseName(runningModule.runningTests[0])} which is running when the error occurs.`)}`;
+                            else err.message += `\n\n${picocolors_default().white(`The below test cases may be relevant, as they were running when the error occurred:\n  - ${runningModule.runningTests.map((t)=>getCaseName(t)).join('\n  - ')}`)}`;
+                        }
+                        return {
+                            testId: '0',
+                            project: projectName,
+                            testPath: entryInfo.testPath,
+                            status: 'fail',
+                            name: '',
+                            results: runningModule?.results || [],
+                            errors: [
+                                err
+                            ]
+                        };
+                    }
+                    return {
+                        testId: '0',
+                        project: projectName,
+                        testPath: entryInfo.testPath,
+                        status: 'fail',
+                        name: '',
+                        results: [],
+                        errors: [
+                            err
+                        ]
+                    };
+                });
+                context.stateManager.onTestFileResult(result);
+                reporters.map((reporter)=>reporter.onTestFileResult?.(result));
+                return result;
+            }));
+            for (const result of results)if (result.snapshotResult) context.snapshotManager.add(result.snapshotResult);
+            const testResults = results.flatMap((r)=>r.results);
+            return {
+                results,
+                testResults,
+                project
+            };
+        },
+        collectTests: async ({ entries, getAssetFiles, getSourceMaps, setupEntries, project, updateSnapshot })=>{
+            const runtimeConfig = getRuntimeConfig(project);
+            const projectName = project.normalizedConfig.name;
+            const setupAssets = setupEntries.flatMap((entry)=>entry.files || []);
+            return Promise.all(entries.map(async (entryInfo, index)=>pool.collectTests({
+                    options: {
+                        entryInfo,
+                        context: {
+                            taskId: index + 1,
+                            project: projectName,
+                            outputModule: project.outputModule,
+                            rootPath: context.rootPath,
+                            projectRoot: project.rootPath,
+                            runtimeConfig: serializableConfig(runtimeConfig)
+                        },
+                        type: 'collect',
+                        setupEntries,
+                        updateSnapshot,
+                        assets: memory_isMemorySufficient() ? await filterAssetsByEntry(entryInfo, getAssetFiles, getSourceMaps, setupAssets) : void 0
+                    },
+                    rpcMethods: {
+                        ...rpcMethods,
+                        getAssetsByEntry: async ()=>filterAssetsByEntry(entryInfo, getAssetFiles, getSourceMaps, setupAssets)
+                    }
+                }).catch((err)=>{
+                    err.fullStack = true;
+                    return {
+                        project: projectName,
+                        testPath: entryInfo.testPath,
+                        tests: [],
+                        errors: [
+                            err
+                        ]
+                    };
+                })));
+        },
+        close: ()=>pool.close()
+    };
+};
+let globalTeardownCallbacks = [];
+function applyEnvChanges(changes) {
+    for(const key in changes)if (void 0 === changes[key]) delete process.env[key];
+    else process.env[key] = changes[key];
+}
+const globalSetup_filename = fileURLToPath(import.meta.url);
+const globalSetup_dirname = dirname(globalSetup_filename);
+async function createSetupPool() {
+    const options = {
+        runtime: 'child_process',
+        filename: pathe_M_eThtNZ_resolve(globalSetup_dirname, './globalSetupWorker.js'),
+        execArgv: [
+            ...process.execArgv,
+            '--experimental-vm-modules',
+            '--experimental-import-meta-resolve',
+            '--no-warnings'
+        ],
+        maxThreads: 1,
+        minThreads: 1,
+        concurrentTasksPerWorker: 1,
+        isolateWorkers: false,
+        env: {
+            NODE_ENV: 'test',
+            FORCE_COLOR: '1' === process.env.NO_COLOR ? '0' : '1',
+            ...process.env
+        }
+    };
+    const pool = new Tinypool(options);
+    const destroy = pool.destroy.bind(pool);
+    process.on('SIGTERM', destroy);
+    return pool;
+}
+async function runGlobalSetup({ globalSetupEntries, assetFiles, sourceMaps, interopDefault, outputModule }) {
+    const pool = await createSetupPool();
+    const result = await pool.run({
+        type: 'setup',
+        entries: globalSetupEntries,
+        assetFiles,
+        interopDefault,
+        outputModule,
+        sourceMaps
+    });
+    if (result.success) {
+        if (result.envChanges) applyEnvChanges(result.envChanges);
+        if (result.hasTeardown) globalTeardownCallbacks.push(()=>runWorkerTeardown(pool));
+    }
+    return {
+        success: result.success,
+        errors: result.errors
+    };
+}
+async function runWorkerTeardown(pool) {
+    const result = await pool.run({
+        type: 'teardown'
+    });
+    if (!result.success) process.exitCode = 1;
+    await pool.destroy();
+}
+async function runGlobalTeardown() {
+    const teardownCallbacks = [
+        ...globalTeardownCallbacks
+    ];
+    globalTeardownCallbacks = [];
+    for (const teardown of teardownCallbacks.reverse())try {
+        await teardown();
+    } catch (error) {
+        console.error(bgColor('bgRed', 'Error during global teardown'));
+        if (error instanceof Error) error.stack ? console.error(picocolors_default().red(error.stack)) : console.error(picocolors_default().red(error.message));
+        else console.error(picocolors_default().red(String(error)));
+        process.exitCode = 1;
+    }
+}
+const RUNTIME_CHUNK_NAME = 'runtime';
+const requireShim = `// Rstest ESM shims
+import __rstest_shim_module__ from 'node:module';
+const require = /*#__PURE__*/ __rstest_shim_module__.createRequire(import.meta.url);
+`;
+const pluginBasic = (context)=>({
+        name: 'rstest:basic',
+        setup: (api)=>{
+            api.modifyBundlerChain((chain)=>{
+                chain.optimization.splitChunks({
+                    chunks: 'all'
+                });
+            });
+            api.modifyEnvironmentConfig(async (config, { mergeEnvironmentConfig, name })=>{
+                const { normalizedConfig: { resolve, source, output, tools, performance, dev, testEnvironment }, outputModule, rootPath } = context.projects.find((p)=>p.environmentName === name);
+                return mergeEnvironmentConfig(config, {
+                    performance,
+                    tools,
+                    resolve,
+                    source,
+                    output,
+                    dev
+                }, {
+                    source: {
+                        define: {
+                            'import.meta.rstest': "global['@rstest/core']",
+                            'import.meta.env': 'process.env'
+                        }
+                    },
+                    output: {
+                        manifest: `${name}-manifest.json`,
+                        sourceMap: {
+                            js: 'source-map'
+                        },
+                        module: outputModule,
+                        filename: outputModule ? {
+                            js: '[name].mjs'
+                        } : void 0,
+                        distPath: {
+                            root: context.projects.length > 1 ? `${TEMP_RSTEST_OUTPUT_DIR}/${name}` : TEMP_RSTEST_OUTPUT_DIR
+                        }
+                    },
+                    tools: {
+                        rspack: (config, { isProd, rspack })=>{
+                            config.context = rootPath;
+                            config.mode = isProd ? 'production' : 'development';
+                            config.output ??= {};
+                            config.output.iife = false;
+                            config.output.importFunctionName = outputModule ? 'import.meta.__rstest_dynamic_import__' : '__rstest_dynamic_import__';
+                            config.output.devtoolModuleFilenameTemplate = '[absolute-resource-path]';
+                            if (!config.devtool || !config.devtool.includes('inline')) config.devtool = 'nosources-source-map';
+                            config.plugins.push(new rspack.experiments.RstestPlugin({
+                                injectModulePathName: true,
+                                importMetaPathName: true,
+                                hoistMockModule: true,
+                                manualMockRoot: posix.resolve(rootPath, '__mocks__')
+                            }));
+                            if (outputModule) config.plugins.push(new rspack.BannerPlugin({
+                                banner: requireShim,
+                                stage: rspack.Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE - 1,
+                                raw: true,
+                                include: /\.(js|mjs)$/
+                            }));
+                            config.module.parser ??= {};
+                            config.module.parser.javascript = {
+                                importDynamic: false,
+                                requireDynamic: false,
+                                requireAsExpression: false,
+                                requireResolve: false,
+                                ...config.module.parser.javascript || {},
+                                exportsPresence: 'warn'
+                            };
+                            config.resolve ??= {};
+                            config.resolve.extensions ??= [];
+                            config.resolve.extensions.push('.cjs');
+                            config.resolve.extensionAlias ??= {};
+                            config.resolve.extensionAlias['.js'] = [
+                                '.js',
+                                '.ts',
+                                '.tsx'
+                            ];
+                            config.resolve.extensionAlias['.jsx'] = [
+                                '.jsx',
+                                '.tsx'
+                            ];
+                            if ('node' === testEnvironment) config.resolve.mainFields = config.resolve.mainFields?.filter((filed)=>'module' !== filed) || [
+                                'main'
+                            ];
+                            config.resolve.byDependency ??= {};
+                            config.resolve.byDependency.commonjs ??= {};
+                            config.resolve.byDependency.commonjs.mainFields = [
+                                'main',
+                                '...'
+                            ];
+                            config.optimization = {
+                                moduleIds: 'named',
+                                chunkIds: 'named',
+                                nodeEnv: false,
+                                ...config.optimization || {},
+                                runtimeChunk: {
+                                    name: `${name}-${RUNTIME_CHUNK_NAME}`
+                                }
+                            };
+                        }
+                    }
+                });
+            });
+        }
+    });
+const external_node_path_ = __webpack_require__("node:path");
+const PLUGIN_CSS_FILTER = 'rstest:css-filter';
+const css_filter_dirname = external_node_path_["default"].dirname(fileURLToPath(import.meta.url));
+const pluginCSSFilter = ()=>({
+        name: PLUGIN_CSS_FILTER,
+        setup (api) {
+            api.modifyBundlerChain({
+                order: 'post',
+                handler: async (chain, { target, CHAIN_ID, environment })=>{
+                    const emitCss = environment.config.output.emitCss ?? 'web' === target;
+                    if (!emitCss) {
+                        const ruleIds = [
+                            CHAIN_ID.RULE.CSS,
+                            CHAIN_ID.RULE.SASS,
+                            CHAIN_ID.RULE.LESS,
+                            CHAIN_ID.RULE.STYLUS
+                        ];
+                        for (const ruleId of ruleIds){
+                            if (!chain.module.rules.has(ruleId)) continue;
+                            const rule = chain.module.rule(ruleId);
+                            if (!rule.uses.has(CHAIN_ID.USE.CSS)) continue;
+                            const cssLoaderOptions = rule.use(CHAIN_ID.USE.CSS).get('options');
+                            if (cssLoaderOptions.modules && ('object' != typeof cssLoaderOptions.modules || false !== cssLoaderOptions.modules.auto)) rule.use('rstest-css-pre-filter').loader(external_node_path_["default"].join(css_filter_dirname, 'cssFilterLoader.mjs')).options({
+                                modules: cssLoaderOptions.modules
+                            }).after(ruleId);
+                        }
+                    }
+                }
+            });
+        }
+    });
+class TestFileWatchPlugin {
+    contextToWatch = null;
+    constructor(contextToWatch){
+        this.contextToWatch = contextToWatch;
+    }
+    apply(compiler) {
+        compiler.hooks.afterCompile.tap('Rstest:TestFileWatchPlugin', (compilation)=>{
+            if (null === this.contextToWatch) return;
+            const contextDep = compilation.contextDependencies;
+            if (!contextDep.has(this.contextToWatch)) contextDep.add(this.contextToWatch);
+        });
+    }
+}
+const pluginEntryWatch = ({ isWatch, globTestSourceEntries, setupFiles, globalSetupFiles, context })=>({
+        name: 'rstest:entry-watch',
+        setup: (api)=>{
+            api.modifyRspackConfig(async (config, { environment })=>{
+                if (isWatch) {
+                    config.plugins.push(new TestFileWatchPlugin(environment.config.root));
+                    config.entry = async ()=>{
+                        const sourceEntries = await globTestSourceEntries(environment.name);
+                        return {
+                            ...sourceEntries,
+                            ...setupFiles[environment.name],
+                            ...globalSetupFiles?.[environment.name] || {}
+                        };
+                    };
+                    config.watchOptions ??= {};
+                    config.watchOptions.aggregateTimeout = 5;
+                    config.watchOptions.ignored = castArray(config.watchOptions.ignored || []);
+                    if (0 === config.watchOptions.ignored.length) config.watchOptions.ignored.push('**/.git', '**/node_modules');
+                    config.watchOptions.ignored.push(TEMP_RSTEST_OUTPUT_DIR_GLOB, context.normalizedConfig.coverage.reportsDirectory, ...Object.values(globalSetupFiles?.[environment.name] || {}), '**/*.snap');
+                    const configFilePath = context.projects.find((project)=>project.environmentName === environment.name)?.configFilePath;
+                    if (configFilePath) config.watchOptions.ignored.push(configFilePath);
+                } else {
+                    config.watch = false;
+                    config.watchOptions ??= {};
+                    config.watchOptions.ignored = '**/**';
+                    const sourceEntries = await globTestSourceEntries(environment.name);
+                    config.entry = {
+                        ...setupFiles[environment.name],
+                        ...globalSetupFiles?.[environment.name] || {},
+                        ...sourceEntries
+                    };
+                }
+            });
+        }
+    });
+const autoExternalNodeModules = (outputModule)=>({ context, request, dependencyType, getResolve }, callback)=>{
+        if (!request) return callback();
+        if (request.startsWith('@swc/helpers/') || request.endsWith('.wasm')) return callback();
+        const doExternal = (externalPath = request)=>{
+            callback(void 0, externalPath, 'commonjs' === dependencyType ? 'commonjs' : outputModule ? 'module-import' : 'import');
+        };
+        const resolver = getResolve?.();
+        if (!resolver) return callback();
+        resolver(context, request, (err, resolvePath)=>{
+            if (err) return callback(void 0, request, 'node-commonjs');
+            if (resolvePath && resolvePath.includes('node_modules') && !/\.(?:ts|tsx|jsx|mts|cts)$/.test(resolvePath)) return doExternal(resolvePath);
+            return callback();
+        });
+    };
+function autoExternalNodeBuiltin({ request, dependencyType }, callback) {
+    if (!request) return void callback();
+    const isNodeBuiltin = isBuiltin(request) || ADDITIONAL_NODE_BUILTINS.some((builtin)=>{
+        if ('string' == typeof builtin) return builtin === request;
+        return builtin.test(request);
+    });
+    if (isNodeBuiltin) callback(void 0, request, 'commonjs' === dependencyType ? 'commonjs' : 'module-import');
+    else callback();
+}
+const pluginExternal = (context)=>({
+        name: 'rstest:external',
+        setup: (api)=>{
+            api.modifyEnvironmentConfig(async (config, { mergeEnvironmentConfig, name })=>{
+                const { normalizedConfig: { testEnvironment }, outputModule } = context.projects.find((p)=>p.environmentName === name);
+                return mergeEnvironmentConfig(config, {
+                    output: {
+                        externals: 'node' === testEnvironment ? [
+                            autoExternalNodeModules(outputModule)
+                        ] : void 0
+                    },
+                    tools: {
+                        rspack: (config)=>{
+                            config.externals = castArray(config.externals) || [];
+                            config.externals.unshift({
+                                '@rstest/core': 'global @rstest/core'
+                            });
+                            config.externalsPresets ??= {};
+                            config.externalsPresets.node = false;
+                            config.externals.unshift(autoExternalNodeBuiltin);
+                        }
+                    }
+                });
+            });
+        }
+    });
+class IgnoreModuleNotFoundErrorPlugin {
+    apply(compiler) {
+        compiler.hooks.done.tap('Rstest:IgnoreModuleNotFoundPlugin', (stats)=>{
+            for(let i = stats.compilation.errors.length - 1; i >= 0; i--)if (/Module not found/.test(stats.compilation.errors[i].message)) stats.compilation.errors.splice(i, 1);
+        });
+    }
+}
+const pluginIgnoreResolveError = {
+    name: 'rstest:ignore-resolve-error',
+    setup: (api)=>{
+        api.modifyRspackConfig(async (config)=>{
+            config.plugins.push(new IgnoreModuleNotFoundErrorPlugin());
+            config.optimization ??= {};
+            config.optimization.emitOnErrors = true;
+            config.ignoreWarnings ??= [];
+            config.ignoreWarnings.push(/Module not found/);
+        });
+    }
+};
+const enable = void 0 !== node_inspector.url();
+const pluginInspect = ()=>enable ? {
+        name: 'rstest:inspect',
+        setup: (api)=>{
+            api.modifyRspackConfig(async (config)=>{
+                config.devtool = 'inline-nosources-source-map';
+                config.optimization ??= {};
+                config.optimization.splitChunks = {
+                    ...config.optimization.splitChunks || {},
+                    maxSize: 1048576,
+                    chunks: 'all'
+                };
+            });
+        }
+    } : null;
+const external_node_fs_ = __webpack_require__("node:fs");
+const mockRuntime_dirname = external_node_path_["default"].dirname(fileURLToPath(import.meta.url));
+class MockRuntimeRspackPlugin {
+    outputModule;
+    constructor(outputModule){
+        this.outputModule = outputModule;
+    }
+    apply(compiler) {
+        const { RuntimeModule } = compiler.webpack;
+        class RetestImportRuntimeModule extends RuntimeModule {
+            constructor(){
+                super('rstest runtime');
+            }
+            generate() {
+                const code = external_node_fs_["default"].readFileSync(external_node_path_["default"].join(mockRuntime_dirname, './mockRuntimeCode.js'), 'utf8');
+                return code;
+            }
+        }
+        compiler.hooks.compilation.tap('RstestMockPlugin', (compilation)=>{
+            compilation.hooks.runtimeModule.tap('RstestMockChunkLoadingRuntimePlugin', (module)=>{
+                if ('require_chunk_loading' === module.name) {
+                    const finalSource = module.source.source.toString('utf-8').replace('for (var moduleId in moreModules) {', "for (var moduleId in moreModules) {\n		if (Object.keys(__webpack_require__.rstest_original_modules).includes(moduleId)) continue;");
+                    module.source.source = Buffer.from(finalSource);
+                }
+                if ('module_chunk_loading' === module.name) {
+                    const finalSource = module.source.source.toString('utf-8').replace('for (moduleId in __webpack_modules__) {', "for (moduleId in __webpack_modules__) {\n		if (Object.keys(__webpack_require__.rstest_original_modules).includes(moduleId)) continue;");
+                    module.source.source = Buffer.from(finalSource);
+                }
+                if ('define_property_getters' === module.name) {
+                    const finalSource = module.source.source.toString('utf-8').replace('enumerable: true, get:', 'enumerable: true, configurable: true, get:');
+                    module.source.source = Buffer.from(finalSource);
+                }
+                if ('async_wasm_loading' === module.name) {
+                    const finalSource = module.source.source.toString('utf-8').replace('readFile(', this.outputModule ? 'import.meta.readWasmFile(' : 'readWasmFile(');
+                    module.source.source = Buffer.from(finalSource);
+                }
+            });
+        });
+        compiler.hooks.thisCompilation.tap('RstestMockPlugin', (compilation)=>{
+            compilation.hooks.additionalTreeRuntimeRequirements.tap('RstestAddMockRuntimePlugin', (chunk)=>{
+                compilation.addRuntimeModule(chunk, new RetestImportRuntimeModule());
+            });
+        });
+    }
+}
+const pluginMockRuntime = {
+    name: 'rstest:mock-runtime',
+    setup: (api)=>{
+        api.modifyRspackConfig(async (config)=>{
+            config.plugins.push(new MockRuntimeRspackPlugin(Boolean(config.output.module)));
+        });
+    }
+};
+class RstestCacheControlPlugin {
+    apply(compiler) {
+        const { RuntimeModule } = compiler.webpack;
+        class RetestCacheControlModule extends RuntimeModule {
+            constructor(){
+                super('rstest_cache_control');
+            }
+            generate() {
+                return `
+global.setupIds = [];
+
+function __rstest_clean_core_cache__() {
+  if (typeof __webpack_require__ === 'undefined') {
+    return;
+  }
+  delete __webpack_module_cache__['@rstest/core'];
+
+  global.setupIds.forEach((id) => {
+    delete __webpack_module_cache__[id];
+  });
+}
+
+global.__rstest_clean_core_cache__ = __rstest_clean_core_cache__;
+`;
+            }
+        }
+        compiler.hooks.thisCompilation.tap('RstestCacheControlPlugin', (compilation)=>{
+            compilation.hooks.additionalTreeRuntimeRequirements.tap('RstestAddCacheControlRuntimePlugin', (chunk)=>{
+                compilation.addRuntimeModule(chunk, new RetestCacheControlModule());
+            });
+        });
+    }
+}
+const pluginCacheControl = (setupFiles)=>({
+        name: 'rstest:cache-control',
+        setup: (api)=>{
+            if (setupFiles.length) api.transform({
+                test: setupFiles
+            }, ({ code })=>({
+                    code: `${code}
+         if (global.setupIds && __webpack_module__.id) {
+  global.setupIds.push(__webpack_module__.id);
+}
+        `
+                }));
+            api.modifyRspackConfig(async (config)=>{
+                config.plugins.push(new RstestCacheControlPlugin());
+            });
+        }
+    });
+const rsbuild_dirname = posix.dirname(fileURLToPath(import.meta.url));
+function parseInlineSourceMapStr(code) {
+    const inlineSourceMapRegex = /\/\/# sourceMappingURL=data:application\/json(?:;charset=utf-8)?;base64,(.+)\s*$/m;
+    const match = code.match(inlineSourceMapRegex);
+    if (!match || !match[1]) return null;
+    try {
+        const base64Data = match[1];
+        const decodedStr = Buffer.from(base64Data, 'base64').toString('utf-8');
+        return decodedStr;
+    } catch (_error) {
+        return null;
+    }
+}
+const isMultiCompiler = (compiler)=>'compilers' in compiler && Array.isArray(compiler.compilers);
+const prepareRsbuild = async (context, globTestSourceEntries, setupFiles, globalSetupFiles)=>{
+    const { command, normalizedConfig: { isolate, dev = {}, coverage } } = context;
+    const debugMode = isDebug();
+    core_logger.level = debugMode ? 'verbose' : 'error';
+    const writeToDisk = dev.writeToDisk || debugMode;
+    const rsbuildInstance = await createRsbuild({
+        callerName: 'rstest',
+        config: {
+            root: context.rootPath,
+            server: {
+                printUrls: false,
+                strictPort: false,
+                middlewareMode: true,
+                compress: false,
+                cors: false,
+                publicDir: false
+            },
+            dev: {
+                hmr: false,
+                writeToDisk
+            },
+            environments: Object.fromEntries(context.projects.map((project)=>[
+                    project.environmentName,
+                    {
+                        plugins: project.normalizedConfig.plugins,
+                        root: project.rootPath,
+                        output: {
+                            target: 'node'
+                        }
+                    }
+                ])),
+            plugins: [
+                pluginBasic(context),
+                pluginIgnoreResolveError,
+                pluginMockRuntime,
+                pluginCSSFilter(),
+                pluginEntryWatch({
+                    globTestSourceEntries,
+                    setupFiles,
+                    globalSetupFiles,
+                    context,
+                    isWatch: 'watch' === command
+                }),
+                pluginExternal(context),
+                !isolate ? pluginCacheControl(Object.values({
+                    ...setupFiles,
+                    ...globalSetupFiles
+                }).flatMap((files)=>Object.values(files))) : null,
+                pluginInspect()
+            ].filter(Boolean)
+        }
+    });
+    if (coverage?.enabled && 'list' !== command) {
+        const { loadCoverageProvider } = await import("./5734.js").then((mod)=>({
+                loadCoverageProvider: mod.loadCoverageProvider
+            }));
+        const { pluginCoverageCore } = await import("./0~2255.js").then((mod)=>({
+                pluginCoverageCore: mod.pluginCoverageCore
+            }));
+        const { pluginCoverage } = await loadCoverageProvider(coverage, context.rootPath);
+        coverage.exclude.push(...Object.values(setupFiles).flatMap((files)=>Object.values(files)), ...Object.values(globalSetupFiles || {}).flatMap((files)=>Object.values(files)));
+        rsbuildInstance.addPlugins([
+            pluginCoverage(coverage),
+            pluginCoverageCore(coverage)
+        ]);
+    }
+    return rsbuildInstance;
+};
+const calcEntriesToRerun = (entries, chunks, buildData, runtimeChunkName, setupEntries)=>{
+    const buildChunkHashes = (entry, map)=>{
+        const validChunks = (entry.chunks || []).filter((chunk)=>chunk !== runtimeChunkName);
+        validChunks.forEach((chunkName)=>{
+            const chunkInfo = chunks?.find((c)=>c.names?.includes(chunkName));
+            if (chunkInfo) {
+                const existing = map.get(entry.testPath) || {};
+                existing[chunkName] = chunkInfo.hash ?? '';
+                map.set(entry.testPath, existing);
+            }
+        });
+    };
+    const processEntryChanges = (_entries, prevHashes, currentHashesMap)=>{
+        const affectedPaths = new Set();
+        const deletedPaths = [];
+        if (prevHashes) {
+            const prevMap = new Map(prevHashes.map((e)=>[
+                    e.name,
+                    e.chunks
+                ]));
+            const currentNames = new Set(currentHashesMap.keys());
+            deletedPaths.push(...Array.from(prevMap.keys()).filter((name)=>!currentNames.has(name)));
+            const findAffectedEntry = (testPath)=>{
+                const currentChunks = currentHashesMap.get(testPath);
+                const prevChunks = prevMap.get(testPath);
+                if (!currentChunks) return;
+                if (!prevChunks) return void affectedPaths.add(testPath);
+                const hasChanges = Object.entries(currentChunks).some(([chunkName, hash])=>prevChunks[chunkName] !== hash);
+                if (hasChanges) affectedPaths.add(testPath);
+            };
+            currentHashesMap.forEach((_, testPath)=>{
+                findAffectedEntry(testPath);
+            });
+        }
+        return {
+            affectedPaths,
+            deletedPaths
+        };
+    };
+    const previousSetupHashes = buildData.setupEntryToChunkHashes;
+    const previousEntryHashes = buildData.entryToChunkHashes;
+    const setupEntryToChunkHashesMap = new Map();
+    setupEntries.forEach((entry)=>{
+        buildChunkHashes(entry, setupEntryToChunkHashesMap);
+    });
+    const setupEntryToChunkHashes = Array.from(setupEntryToChunkHashesMap.entries()).map(([name, chunks])=>({
+            name,
+            chunks
+        }));
+    buildData.setupEntryToChunkHashes = setupEntryToChunkHashes;
+    const entryToChunkHashesMap = new Map();
+    (entries || []).forEach((entry)=>{
+        buildChunkHashes(entry, entryToChunkHashesMap);
+    });
+    const entryToChunkHashes = Array.from(entryToChunkHashesMap.entries()).map(([name, chunks])=>({
+            name,
+            chunks
+        }));
+    buildData.entryToChunkHashes = entryToChunkHashes;
+    const isSetupChanged = ()=>{
+        const { affectedPaths: affectedSetupPaths, deletedPaths: deletedSetups } = processEntryChanges(setupEntries, previousSetupHashes, setupEntryToChunkHashesMap);
+        const affectedSetups = Array.from(affectedSetupPaths).map((testPath)=>setupEntries.find((e)=>e.testPath === testPath)).filter((entry)=>void 0 !== entry);
+        return affectedSetups.length > 0 || deletedSetups.length > 0;
+    };
+    if (isSetupChanged()) return {
+        affectedEntries: entries,
+        deletedEntries: []
+    };
+    const { affectedPaths: affectedTestPaths, deletedPaths } = processEntryChanges(entries, previousEntryHashes, entryToChunkHashesMap);
+    const affectedEntries = Array.from(affectedTestPaths).map((testPath)=>entries.find((e)=>e.testPath === testPath)).filter((entry)=>void 0 !== entry);
+    return {
+        affectedEntries,
+        deletedEntries: deletedPaths
+    };
+};
+class AssetsMemorySafeMap extends Map {
+    set(key, value) {
+        if (this.has(key)) return this;
+        if (!memory_isMemorySufficient()) this.clear();
+        return super.set(key, value);
+    }
+}
+const createRsbuildServer = async ({ globTestSourceEntries, setupFiles, globalSetupFiles, rsbuildInstance, inspectedConfig, isWatchMode })=>{
+    let rspackCompiler;
+    const rstestCompilerPlugin = {
+        name: 'rstest:compiler',
+        setup: (api)=>{
+            api.modifyBundlerChain((chain)=>{
+                chain.module.rule('rstest-mock-module-doppelgangers').test(/\.(?:js|jsx|mjs|cjs|ts|tsx|mts|cts)$/).with({
+                    rstest: 'importActual'
+                }).use('import-actual-loader').loader(posix.resolve(rsbuild_dirname, './importActualLoader.mjs')).end();
+            });
+            api.onAfterCreateCompiler(({ compiler })=>{
+                rspackCompiler = compiler;
+            });
+        }
+    };
+    rsbuildInstance.addPlugins([
+        rstestCompilerPlugin
+    ]);
+    const devServer = await rsbuildInstance.createDevServer({
+        getPortSilently: true
+    });
+    if (isDebug()) await rsbuildInstance.inspectConfig({
+        writeToDisk: true,
+        extraConfigs: {
+            rstest: inspectedConfig
+        }
+    });
+    if (!rspackCompiler) throw new Error('rspackCompiler was not initialized');
+    const outputFileSystem = isMultiCompiler(rspackCompiler) ? rspackCompiler.compilers[0].outputFileSystem : rspackCompiler.outputFileSystem;
+    if (!outputFileSystem) throw new Error(`Expect outputFileSystem to be defined, but got ${outputFileSystem}`);
+    const cachedReadFilePromises = new Map();
+    const readFile = async (fileName)=>{
+        if (cachedReadFilePromises.has(fileName)) return cachedReadFilePromises.get(fileName);
+        const promise = new Promise((resolve, reject)=>{
+            outputFileSystem.readFile(fileName, (err, data)=>{
+                if (err) reject(err);
+                const content = 'string' == typeof data ? data : fileName.endsWith('.wasm') ? data.toString('base64') : data.toString('utf-8');
+                resolve(content);
+            });
+        });
+        cachedReadFilePromises.set(fileName, promise);
+        promise.finally(()=>cachedReadFilePromises.delete(fileName));
+        return promise;
+    };
+    const buildData = {};
+    const getEntryFiles = async (manifest, outputPath)=>{
+        const entryFiles = {};
+        const entries = Object.keys(manifest.entries);
+        for (const entry of entries){
+            const data = manifest.entries[entry];
+            entryFiles[entry] = ((data?.initial?.js || []).concat(data?.async?.js || []) || []).map((file)=>posix.join(outputPath, file));
+        }
+        return entryFiles;
+    };
+    const getRsbuildStats = async ({ environmentName, fileFilters })=>{
+        const stats = await devServer.environments[environmentName].getStats();
+        const enableAssetsCache = memory_isMemorySufficient();
+        const manifest = devServer.environments[environmentName].context.manifest;
+        const { entrypoints, outputPath, assets, hash, chunks } = stats.toJson({
+            all: false,
+            hash: true,
+            entrypoints: true,
+            outputPath: true,
+            assets: true,
+            relatedAssets: true,
+            cachedAssets: true,
+            chunks: true,
+            timings: true
+        });
+        const entryFiles = await getEntryFiles(manifest, outputPath);
+        const entries = [];
+        const setupEntries = [];
+        const globalSetupEntries = [];
+        const sourceEntries = await globTestSourceEntries(environmentName);
+        for (const entry of Object.keys(entrypoints)){
+            const e = entrypoints[entry];
+            const filteredAssets = e.assets.filter((asset)=>!asset.name.endsWith('.wasm'));
+            const distPath = posix.join(outputPath, filteredAssets[filteredAssets.length - 1].name);
+            if (setupFiles[environmentName]?.[entry]) setupEntries.push({
+                distPath,
+                testPath: setupFiles[environmentName][entry],
+                files: entryFiles[entry],
+                chunks: e.chunks || []
+            });
+            else if (sourceEntries[entry]) {
+                if (fileFilters?.length && !fileFilters.includes(sourceEntries[entry])) continue;
+                entries.push({
+                    distPath,
+                    testPath: sourceEntries[entry],
+                    files: entryFiles[entry],
+                    chunks: e.chunks || []
+                });
+            } else if (globalSetupFiles?.[environmentName]?.[entry]) globalSetupEntries.push({
+                distPath,
+                testPath: globalSetupFiles[environmentName][entry],
+                files: entryFiles[entry],
+                chunks: e.chunks || []
+            });
+        }
+        const inlineSourceMap = 'inline-source-map' === stats.compilation.options.devtool;
+        const sourceMapPaths = Object.fromEntries(assets.map((asset)=>{
+            const assetFilePath = posix.join(outputPath, asset.name);
+            if (inlineSourceMap) return [
+                assetFilePath,
+                assetFilePath
+            ];
+            const sourceMapPath = asset?.info.related?.sourceMap?.[0];
+            if (sourceMapPath) {
+                const filePath = posix.join(outputPath, sourceMapPath);
+                return [
+                    assetFilePath,
+                    filePath
+                ];
+            }
+            return [
+                assetFilePath,
+                null
+            ];
+        }));
+        buildData[environmentName] ??= {};
+        const { affectedEntries, deletedEntries } = isWatchMode ? calcEntriesToRerun(entries, chunks, buildData[environmentName], `${environmentName}-${RUNTIME_CHUNK_NAME}`, setupEntries) : {
+            affectedEntries: [],
+            deletedEntries: []
+        };
+        const cachedAssetFiles = new AssetsMemorySafeMap();
+        const cachedSourceMaps = new AssetsMemorySafeMap();
+        const readFileWithCache = async (name)=>{
+            if (enableAssetsCache && cachedAssetFiles.has(name)) return cachedAssetFiles.get(name);
+            const content = await readFile(name);
+            enableAssetsCache && cachedAssetFiles.set(name, content);
+            return content;
+        };
+        const getSourceMap = async (name)=>{
+            const sourceMapPath = sourceMapPaths[name];
+            if (!sourceMapPath) return null;
+            if (enableAssetsCache && cachedSourceMaps.has(name)) return cachedSourceMaps.get(name);
+            let content = null;
+            if (inlineSourceMap) {
+                const file = await readFile(sourceMapPath);
+                content = parseInlineSourceMapStr(file);
+            } else {
+                const sourceMap = await readFile(sourceMapPath);
+                content = sourceMap;
+            }
+            enableAssetsCache && content && cachedSourceMaps.set(name, content);
+            return content;
+        };
+        const assetNames = assets.map((asset)=>posix.join(outputPath, asset.name));
+        return {
+            affectedEntries,
+            deletedEntries,
+            hash,
+            entries,
+            setupEntries,
+            globalSetupEntries,
+            assetNames,
+            getAssetFiles: async (names)=>Object.fromEntries(await Promise.all(names.map(async (name)=>{
+                    const content = await readFileWithCache(name);
+                    return [
+                        name,
+                        content
+                    ];
+                }))),
+            getSourceMaps: async (names)=>Object.fromEntries(await Promise.all(names.map(async (name)=>{
+                    const content = await getSourceMap(name);
+                    return [
+                        name,
+                        content
+                    ];
+                })))
+        };
+    };
+    return {
+        closeServer: devServer.close,
+        getRsbuildStats
+    };
+};
+export { createPool, createRsbuildServer, prepareRsbuild, runGlobalSetup, runGlobalTeardown };

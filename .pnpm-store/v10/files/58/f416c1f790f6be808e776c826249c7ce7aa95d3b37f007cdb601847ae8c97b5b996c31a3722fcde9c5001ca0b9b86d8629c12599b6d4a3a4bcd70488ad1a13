@@ -1,0 +1,46 @@
+import 'module';
+/*#__PURE__*/ import.meta.url;
+const shouldInterop = ({ interopDefault = true, modulePath, mod })=>{
+    if (!interopDefault) return false;
+    return !modulePath.endsWith('.mjs') && 'default' in mod;
+};
+const isPrimitive = (v)=>v !== Object(v);
+function interopModule(mod) {
+    if (isPrimitive(mod)) return {
+        mod: {
+            default: mod
+        },
+        defaultExport: mod
+    };
+    const defaultExport = 'default' in mod ? mod.default : mod;
+    if (!isPrimitive(defaultExport) && '__esModule' in defaultExport) return {
+        mod: defaultExport,
+        defaultExport: 'default' in defaultExport ? defaultExport.default : defaultExport
+    };
+    return {
+        mod,
+        defaultExport
+    };
+}
+const asModule = async (something, defaultExport, context, unlinked)=>{
+    const { Module, SyntheticModule } = await import("node:vm");
+    if (something instanceof Module) return something;
+    const exports = [
+        ...new Set([
+            'default',
+            ...Object.keys(something)
+        ])
+    ];
+    const m = new SyntheticModule(exports, ()=>{
+        for (const name of exports)m.setExport(name, 'default' === name ? defaultExport : something[name]);
+    }, {
+        context
+    });
+    if (unlinked) return m;
+    await m.link(()=>{});
+    if (m.instantiate) m.instantiate();
+    await m.evaluate();
+    return m;
+};
+export { default as node_vm } from "node:vm";
+export { asModule, interopModule, shouldInterop };

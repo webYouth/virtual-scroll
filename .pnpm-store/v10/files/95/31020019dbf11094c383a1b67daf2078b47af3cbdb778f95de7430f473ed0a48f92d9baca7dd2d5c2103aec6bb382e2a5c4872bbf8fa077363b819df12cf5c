@@ -1,0 +1,76 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.selectBlock = selectBlock;
+const resolveScript_1 = require("./resolveScript");
+const scriptCache = new Map();
+const templateCache = new Map();
+const styleCache = new Map();
+const customBlockCache = new Map();
+/**
+ * Get cached sourcemap if content hasn't changed, otherwise update cache
+ * This helps prevent unnecessary HMR updates when only sourcemap changes due to other
+ * changes in the file (eg, style changes effecting the script and consequently the vue state).
+ */
+function getCachedMapOrUpdate(cache, key, content, map) {
+    const cached = cache.get(key);
+    if (cached && cached.content === content) {
+        // Content hasn't changed, reuse the cached sourcemap
+        return cached.map;
+    }
+    // Content changed or not cached, update cache and return new map
+    cache.set(key, { content, map });
+    return map;
+}
+function selectBlock(descriptor, scopeId, options, loaderContext, query, appendExtension, isHMR = false) {
+    const filename = loaderContext.resourcePath;
+    // template
+    if (query.type === `template`) {
+        // if we are receiving a query with type it can only come from a *.vue file
+        // that contains that block, so the block is guaranteed to exist.
+        const template = descriptor.template;
+        if (appendExtension) {
+            loaderContext.resourcePath += '.' + (template.lang || 'html');
+        }
+        const cacheKey = `${filename}:template`;
+        const map = isHMR
+            ? getCachedMapOrUpdate(templateCache, cacheKey, template.content, template.map)
+            : template.map;
+        loaderContext.callback(null, template.content, map);
+        return;
+    }
+    // script
+    if (query.type === `script`) {
+        const script = (0, resolveScript_1.resolveScript)(descriptor, scopeId, options, loaderContext);
+        if (appendExtension) {
+            loaderContext.resourcePath += '.' + (script.lang || 'js');
+        }
+        const cacheKey = `${filename}:script`;
+        const map = isHMR
+            ? getCachedMapOrUpdate(scriptCache, cacheKey, script.content, script.map)
+            : script.map;
+        loaderContext.callback(null, script.content, map);
+        return;
+    }
+    // styles
+    if (query.type === `style` && query.index != null) {
+        const style = descriptor.styles[Number(query.index)];
+        if (appendExtension) {
+            loaderContext.resourcePath += '.' + (style.lang || 'css');
+        }
+        const cacheKey = `${filename}:style:${query.index}`;
+        const map = isHMR
+            ? getCachedMapOrUpdate(styleCache, cacheKey, style.content, style.map)
+            : style.map;
+        loaderContext.callback(null, style.content, map);
+        return;
+    }
+    // custom
+    if (query.type === 'custom' && query.index != null) {
+        const block = descriptor.customBlocks[Number(query.index)];
+        const cacheKey = `${filename}:custom:${query.index}`;
+        const map = isHMR
+            ? getCachedMapOrUpdate(customBlockCache, cacheKey, block.content, block.map)
+            : block.map;
+        loaderContext.callback(null, block.content, map);
+    }
+}

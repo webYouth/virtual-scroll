@@ -1,0 +1,2529 @@
+import 'module';
+/*#__PURE__*/ import.meta.url;
+import { __webpack_require__ } from "./rslib-runtime.js";
+import { EventEmitter } from "events";
+import { createRsbuild, loadConfig, logger as core_logger, mergeRsbuildConfig, rspack } from "@rsbuild/core";
+import "./5693.js";
+import { basename, logger_logger, dirname, posix, resolve as pathe_M_eThtNZ_resolve, isDebug, isAbsolute, relative, join, normalize } from "./3278.js";
+import { isTTY, DEFAULT_CONFIG_NAME, globalApis, filterProjects, getAbsolutePath, bgColor, formatRootStr, isDynamicPattern, glob, writeFile, castArray, prettyTestPath, prettyTime, TEMP_RSTEST_OUTPUT_DIR_GLOB, getTaskNameWithPrefix, formatTestPath, formatError, DEFAULT_CONFIG_EXTENSIONS, TS_CONFIG_FILE } from "./1157.js";
+import { parse as stack_trace_parser_esm_parse } from "./1672.js";
+import { decode } from "./4397.js";
+function toArr(any) {
+    return null == any ? [] : Array.isArray(any) ? any : [
+        any
+    ];
+}
+function toVal(out, key, val, opts) {
+    var x, old = out[key], nxt = ~opts.string.indexOf(key) ? null == val || true === val ? '' : String(val) : 'boolean' == typeof val ? val : ~opts.boolean.indexOf(key) ? 'false' === val ? false : 'true' === val || (out._.push((x = +val, 0 * x === 0) ? x : val), !!val) : (x = +val, 0 * x === 0) ? x : val;
+    out[key] = null == old ? nxt : Array.isArray(old) ? old.concat(nxt) : [
+        old,
+        nxt
+    ];
+}
+function mri2(args, opts) {
+    args = args || [];
+    opts = opts || {};
+    var k, arr, arg, name, val, out = {
+        _: []
+    };
+    var i = 0, j = 0, idx = 0, len = args.length;
+    const alibi = void 0 !== opts.alias;
+    const strict = void 0 !== opts.unknown;
+    const defaults = void 0 !== opts.default;
+    opts.alias = opts.alias || {};
+    opts.string = toArr(opts.string);
+    opts.boolean = toArr(opts.boolean);
+    if (alibi) for(k in opts.alias){
+        arr = opts.alias[k] = toArr(opts.alias[k]);
+        for(i = 0; i < arr.length; i++)(opts.alias[arr[i]] = arr.concat(k)).splice(i, 1);
+    }
+    for(i = opts.boolean.length; i-- > 0;){
+        arr = opts.alias[opts.boolean[i]] || [];
+        for(j = arr.length; j-- > 0;)opts.boolean.push(arr[j]);
+    }
+    for(i = opts.string.length; i-- > 0;){
+        arr = opts.alias[opts.string[i]] || [];
+        for(j = arr.length; j-- > 0;)opts.string.push(arr[j]);
+    }
+    if (defaults) for(k in opts.default){
+        name = typeof opts.default[k];
+        arr = opts.alias[k] = opts.alias[k] || [];
+        if (void 0 !== opts[name]) {
+            opts[name].push(k);
+            for(i = 0; i < arr.length; i++)opts[name].push(arr[i]);
+        }
+    }
+    const keys = strict ? Object.keys(opts.alias) : [];
+    for(i = 0; i < len; i++){
+        arg = args[i];
+        if ('--' === arg) {
+            out._ = out._.concat(args.slice(++i));
+            break;
+        }
+        for(j = 0; j < arg.length && 45 === arg.charCodeAt(j); j++);
+        if (0 === j) out._.push(arg);
+        else if ('no-' === arg.substring(j, j + 3)) {
+            name = arg.substring(j + 3);
+            if (strict && !~keys.indexOf(name)) return opts.unknown(arg);
+            out[name] = false;
+        } else {
+            for(idx = j + 1; idx < arg.length && 61 !== arg.charCodeAt(idx); idx++);
+            name = arg.substring(j, idx);
+            val = arg.substring(++idx) || i + 1 === len || 45 === ('' + args[i + 1]).charCodeAt(0) || args[++i];
+            arr = 2 === j ? [
+                name
+            ] : name;
+            for(idx = 0; idx < arr.length; idx++){
+                name = arr[idx];
+                if (strict && !~keys.indexOf(name)) return opts.unknown('-'.repeat(j) + name);
+                toVal(out, name, idx + 1 < arr.length || val, opts);
+            }
+        }
+    }
+    if (defaults) {
+        for(k in opts.default)if (void 0 === out[k]) out[k] = opts.default[k];
+    }
+    if (alibi) for(k in out){
+        arr = opts.alias[k] || [];
+        while(arr.length > 0)out[arr.shift()] = out[k];
+    }
+    return out;
+}
+const removeBrackets = (v)=>v.replace(/[<[].+/, "").trim();
+const findAllBrackets = (v)=>{
+    const ANGLED_BRACKET_RE_GLOBAL = /<([^>]+)>/g;
+    const SQUARE_BRACKET_RE_GLOBAL = /\[([^\]]+)\]/g;
+    const res = [];
+    const parse = (match)=>{
+        let variadic = false;
+        let value = match[1];
+        if (value.startsWith("...")) {
+            value = value.slice(3);
+            variadic = true;
+        }
+        return {
+            required: match[0].startsWith("<"),
+            value,
+            variadic
+        };
+    };
+    let angledMatch;
+    while(angledMatch = ANGLED_BRACKET_RE_GLOBAL.exec(v))res.push(parse(angledMatch));
+    let squareMatch;
+    while(squareMatch = SQUARE_BRACKET_RE_GLOBAL.exec(v))res.push(parse(squareMatch));
+    return res;
+};
+const getMriOptions = (options)=>{
+    const result = {
+        alias: {},
+        boolean: []
+    };
+    for (const [index, option] of options.entries()){
+        if (option.names.length > 1) result.alias[option.names[0]] = option.names.slice(1);
+        if (option.isBoolean) if (option.negated) {
+            const hasStringTypeOption = options.some((o, i)=>i !== index && o.names.some((name)=>option.names.includes(name)) && "boolean" == typeof o.required);
+            if (!hasStringTypeOption) result.boolean.push(option.names[0]);
+        } else result.boolean.push(option.names[0]);
+    }
+    return result;
+};
+const findLongest = (arr)=>arr.sort((a, b)=>a.length > b.length ? -1 : 1)[0];
+const padRight = (str, length)=>str.length >= length ? str : `${str}${" ".repeat(length - str.length)}`;
+const camelcase = (input)=>input.replace(/([a-z])-([a-z])/g, (_, p1, p2)=>p1 + p2.toUpperCase());
+const setDotProp = (obj, keys, val)=>{
+    let i = 0;
+    let length = keys.length;
+    let t = obj;
+    let x;
+    for(; i < length; ++i){
+        x = t[keys[i]];
+        t = t[keys[i]] = i === length - 1 ? val : null != x ? x : !~keys[i + 1].indexOf(".") && +keys[i + 1] > -1 ? [] : {};
+    }
+};
+const setByType = (obj, transforms)=>{
+    for (const key of Object.keys(transforms)){
+        const transform = transforms[key];
+        if (transform.shouldTransform) {
+            obj[key] = Array.prototype.concat.call([], obj[key]);
+            if ("function" == typeof transform.transformFunction) obj[key] = obj[key].map(transform.transformFunction);
+        }
+    }
+};
+const getFileName = (input)=>{
+    const m = /([^\\\/]+)$/.exec(input);
+    return m ? m[1] : "";
+};
+const camelcaseOptionName = (name)=>name.split(".").map((v, i)=>0 === i ? camelcase(v) : v).join(".");
+class CACError extends Error {
+    constructor(message){
+        super(message);
+        this.name = this.constructor.name;
+        if ("function" == typeof Error.captureStackTrace) Error.captureStackTrace(this, this.constructor);
+        else this.stack = new Error(message).stack;
+    }
+}
+class Option {
+    constructor(rawName, description, config){
+        this.rawName = rawName;
+        this.description = description;
+        this.config = Object.assign({}, config);
+        rawName = rawName.replace(/\.\*/g, "");
+        this.negated = false;
+        this.names = removeBrackets(rawName).split(",").map((v)=>{
+            let name = v.trim().replace(/^-{1,2}/, "");
+            if (name.startsWith("no-")) {
+                this.negated = true;
+                name = name.replace(/^no-/, "");
+            }
+            return camelcaseOptionName(name);
+        }).sort((a, b)=>a.length > b.length ? 1 : -1);
+        this.name = this.names[this.names.length - 1];
+        if (this.negated && null == this.config.default) this.config.default = true;
+        if (rawName.includes("<")) this.required = true;
+        else if (rawName.includes("[")) this.required = false;
+        else this.isBoolean = true;
+    }
+}
+const processArgs = process.argv;
+const platformInfo = `${process.platform}-${process.arch} node-${process.version}`;
+class Command {
+    constructor(rawName, description, config = {}, cli){
+        this.rawName = rawName;
+        this.description = description;
+        this.config = config;
+        this.cli = cli;
+        this.options = [];
+        this.aliasNames = [];
+        this.name = removeBrackets(rawName);
+        this.args = findAllBrackets(rawName);
+        this.examples = [];
+    }
+    usage(text) {
+        this.usageText = text;
+        return this;
+    }
+    allowUnknownOptions() {
+        this.config.allowUnknownOptions = true;
+        return this;
+    }
+    ignoreOptionDefaultValue() {
+        this.config.ignoreOptionDefaultValue = true;
+        return this;
+    }
+    version(version, customFlags = "-v, --version") {
+        this.versionNumber = version;
+        this.option(customFlags, "Display version number");
+        return this;
+    }
+    example(example) {
+        this.examples.push(example);
+        return this;
+    }
+    option(rawName, description, config) {
+        const option = new Option(rawName, description, config);
+        this.options.push(option);
+        return this;
+    }
+    alias(name) {
+        this.aliasNames.push(name);
+        return this;
+    }
+    action(callback) {
+        this.commandAction = callback;
+        return this;
+    }
+    isMatched(name) {
+        return this.name === name || this.aliasNames.includes(name);
+    }
+    get isDefaultCommand() {
+        return "" === this.name || this.aliasNames.includes("!");
+    }
+    get isGlobalCommand() {
+        return this instanceof GlobalCommand;
+    }
+    hasOption(name) {
+        name = name.split(".")[0];
+        return this.options.find((option)=>option.names.includes(name));
+    }
+    outputHelp() {
+        const { name, commands } = this.cli;
+        const { versionNumber, options: globalOptions, helpCallback } = this.cli.globalCommand;
+        let sections = [
+            {
+                body: `${name}${versionNumber ? `/${versionNumber}` : ""}`
+            }
+        ];
+        sections.push({
+            title: "Usage",
+            body: `  $ ${name} ${this.usageText || this.rawName}`
+        });
+        const showCommands = (this.isGlobalCommand || this.isDefaultCommand) && commands.length > 0;
+        if (showCommands) {
+            const longestCommandName = findLongest(commands.map((command)=>command.rawName));
+            sections.push({
+                title: "Commands",
+                body: commands.map((command)=>`  ${padRight(command.rawName, longestCommandName.length)}  ${command.description}`).join("\n")
+            });
+            sections.push({
+                title: "For more info, run any command with the `--help` flag",
+                body: commands.map((command)=>`  $ ${name}${"" === command.name ? "" : ` ${command.name}`} --help`).join("\n")
+            });
+        }
+        let options = this.isGlobalCommand ? globalOptions : [
+            ...this.options,
+            ...globalOptions || []
+        ];
+        if (!this.isGlobalCommand && !this.isDefaultCommand) options = options.filter((option)=>"version" !== option.name);
+        if (options.length > 0) {
+            const longestOptionName = findLongest(options.map((option)=>option.rawName));
+            sections.push({
+                title: "Options",
+                body: options.map((option)=>`  ${padRight(option.rawName, longestOptionName.length)}  ${option.description} ${void 0 === option.config.default ? "" : `(default: ${option.config.default})`}`).join("\n")
+            });
+        }
+        if (this.examples.length > 0) sections.push({
+            title: "Examples",
+            body: this.examples.map((example)=>{
+                if ("function" == typeof example) return example(name);
+                return example;
+            }).join("\n")
+        });
+        if (helpCallback) sections = helpCallback(sections) || sections;
+        console.log(sections.map((section)=>section.title ? `${section.title}:
+${section.body}` : section.body).join("\n\n"));
+    }
+    outputVersion() {
+        const { name } = this.cli;
+        const { versionNumber } = this.cli.globalCommand;
+        if (versionNumber) console.log(`${name}/${versionNumber} ${platformInfo}`);
+    }
+    checkRequiredArgs() {
+        const minimalArgsCount = this.args.filter((arg)=>arg.required).length;
+        if (this.cli.args.length < minimalArgsCount) throw new CACError(`missing required args for command \`${this.rawName}\``);
+    }
+    checkUnknownOptions() {
+        const { options, globalCommand } = this.cli;
+        if (!this.config.allowUnknownOptions) {
+            for (const name of Object.keys(options))if ("--" !== name && !this.hasOption(name) && !globalCommand.hasOption(name)) throw new CACError(`Unknown option \`${name.length > 1 ? `--${name}` : `-${name}`}\``);
+        }
+    }
+    checkOptionValue() {
+        const { options: parsedOptions, globalCommand } = this.cli;
+        const options = [
+            ...globalCommand.options,
+            ...this.options
+        ];
+        for (const option of options){
+            const value = parsedOptions[option.name.split(".")[0]];
+            if (option.required) {
+                const hasNegated = options.some((o)=>o.negated && o.names.includes(option.name));
+                if (true === value || false === value && !hasNegated) throw new CACError(`option \`${option.rawName}\` value is missing`);
+            }
+        }
+    }
+}
+class GlobalCommand extends Command {
+    constructor(cli){
+        super("@@global@@", "", {}, cli);
+    }
+}
+var __assign = Object.assign;
+class CAC extends EventEmitter {
+    constructor(name = ""){
+        super();
+        this.name = name;
+        this.commands = [];
+        this.rawArgs = [];
+        this.args = [];
+        this.options = {};
+        this.globalCommand = new GlobalCommand(this);
+        this.globalCommand.usage("<command> [options]");
+    }
+    usage(text) {
+        this.globalCommand.usage(text);
+        return this;
+    }
+    command(rawName, description, config) {
+        const command = new Command(rawName, description || "", config, this);
+        command.globalCommand = this.globalCommand;
+        this.commands.push(command);
+        return command;
+    }
+    option(rawName, description, config) {
+        this.globalCommand.option(rawName, description, config);
+        return this;
+    }
+    help(callback) {
+        this.globalCommand.option("-h, --help", "Display this message");
+        this.globalCommand.helpCallback = callback;
+        this.showHelpOnExit = true;
+        return this;
+    }
+    version(version, customFlags = "-v, --version") {
+        this.globalCommand.version(version, customFlags);
+        this.showVersionOnExit = true;
+        return this;
+    }
+    example(example) {
+        this.globalCommand.example(example);
+        return this;
+    }
+    outputHelp() {
+        if (this.matchedCommand) this.matchedCommand.outputHelp();
+        else this.globalCommand.outputHelp();
+    }
+    outputVersion() {
+        this.globalCommand.outputVersion();
+    }
+    setParsedInfo({ args, options }, matchedCommand, matchedCommandName) {
+        this.args = args;
+        this.options = options;
+        if (matchedCommand) this.matchedCommand = matchedCommand;
+        if (matchedCommandName) this.matchedCommandName = matchedCommandName;
+        return this;
+    }
+    unsetMatchedCommand() {
+        this.matchedCommand = void 0;
+        this.matchedCommandName = void 0;
+    }
+    parse(argv = processArgs, { run = true } = {}) {
+        this.rawArgs = argv;
+        if (!this.name) this.name = argv[1] ? getFileName(argv[1]) : "cli";
+        let shouldParse = true;
+        for (const command of this.commands){
+            const parsed = this.mri(argv.slice(2), command);
+            const commandName = parsed.args[0];
+            if (command.isMatched(commandName)) {
+                shouldParse = false;
+                const parsedInfo = __assign(__assign({}, parsed), {
+                    args: parsed.args.slice(1)
+                });
+                this.setParsedInfo(parsedInfo, command, commandName);
+                this.emit(`command:${commandName}`, command);
+            }
+        }
+        if (shouldParse) {
+            for (const command of this.commands)if ("" === command.name) {
+                shouldParse = false;
+                const parsed = this.mri(argv.slice(2), command);
+                this.setParsedInfo(parsed, command);
+                this.emit("command:!", command);
+            }
+        }
+        if (shouldParse) {
+            const parsed = this.mri(argv.slice(2));
+            this.setParsedInfo(parsed);
+        }
+        if (this.options.help && this.showHelpOnExit) {
+            this.outputHelp();
+            run = false;
+            this.unsetMatchedCommand();
+        }
+        if (this.options.version && this.showVersionOnExit && null == this.matchedCommandName) {
+            this.outputVersion();
+            run = false;
+            this.unsetMatchedCommand();
+        }
+        const parsedArgv = {
+            args: this.args,
+            options: this.options
+        };
+        if (run) this.runMatchedCommand();
+        if (!this.matchedCommand && this.args[0]) this.emit("command:*");
+        return parsedArgv;
+    }
+    mri(argv, command) {
+        const cliOptions = [
+            ...this.globalCommand.options,
+            ...command ? command.options : []
+        ];
+        const mriOptions = getMriOptions(cliOptions);
+        let argsAfterDoubleDashes = [];
+        const doubleDashesIndex = argv.indexOf("--");
+        if (doubleDashesIndex > -1) {
+            argsAfterDoubleDashes = argv.slice(doubleDashesIndex + 1);
+            argv = argv.slice(0, doubleDashesIndex);
+        }
+        let parsed = mri2(argv, mriOptions);
+        parsed = Object.keys(parsed).reduce((res, name)=>__assign(__assign({}, res), {
+                [camelcaseOptionName(name)]: parsed[name]
+            }), {
+            _: []
+        });
+        const args = parsed._;
+        const options = {
+            "--": argsAfterDoubleDashes
+        };
+        const ignoreDefault = command && command.config.ignoreOptionDefaultValue ? command.config.ignoreOptionDefaultValue : this.globalCommand.config.ignoreOptionDefaultValue;
+        let transforms = Object.create(null);
+        for (const cliOption of cliOptions){
+            if (!ignoreDefault && void 0 !== cliOption.config.default) for (const name of cliOption.names)options[name] = cliOption.config.default;
+            if (Array.isArray(cliOption.config.type)) {
+                if (void 0 === transforms[cliOption.name]) {
+                    transforms[cliOption.name] = Object.create(null);
+                    transforms[cliOption.name]["shouldTransform"] = true;
+                    transforms[cliOption.name]["transformFunction"] = cliOption.config.type[0];
+                }
+            }
+        }
+        for (const key of Object.keys(parsed))if ("_" !== key) {
+            const keys = key.split(".");
+            setDotProp(options, keys, parsed[key]);
+            setByType(options, transforms);
+        }
+        return {
+            args,
+            options
+        };
+    }
+    runMatchedCommand() {
+        const { args, options, matchedCommand: command } = this;
+        if (!command || !command.commandAction) return;
+        command.checkUnknownOptions();
+        command.checkOptionValue();
+        command.checkRequiredArgs();
+        const actionArgs = [];
+        command.args.forEach((arg, index)=>{
+            if (arg.variadic) actionArgs.push(args.slice(index));
+            else actionArgs.push(args[index]);
+        });
+        actionArgs.push(options);
+        return command.commandAction.apply(this, actionArgs);
+    }
+}
+const cac = (name = "")=>new CAC(name);
+const dist = cac;
+function initNodeEnv() {
+    if (!process.env.NODE_ENV) process.env.NODE_ENV = 'test';
+}
+function prepareCli() {
+    initNodeEnv();
+    process.env.RSTEST = 'true';
+    const { npm_execpath } = process.env;
+    if (!npm_execpath || npm_execpath.includes('npx-cli.js') || npm_execpath.includes('.bun')) logger_logger.log();
+}
+function showRstest() {
+    logger_logger.greet("  Rstest v0.7.7");
+    logger_logger.log('');
+}
+const applyCommonOptions = (cli)=>{
+    cli.option('-c, --config <config>', 'Specify the configuration file, can be a relative or absolute path').option('--config-loader <loader>', 'Specify the loader to load the config file, can be `jiti` or `native`', {
+        default: 'jiti'
+    }).option('-r, --root <root>', 'Specify the project root directory, can be an absolute path or a path relative to cwd').option('--globals', 'Provide global APIs').option('--isolate', 'Run tests in an isolated environment').option('--include <include>', 'Match test files').option('--exclude <exclude>', 'Exclude files from test').option('-u, --update', 'Update snapshot files').option('--coverage', 'Enable code coverage collection').option('--project <name>', 'Run only projects that match the name, can be a full name or wildcards pattern').option('--passWithNoTests', 'Allows the test suite to pass when no files are found').option('--printConsoleTrace', 'Print console traces when calling any console method').option('--disableConsoleIntercept', 'Disable console intercept').option('--logHeapUsage', 'Log heap usage after each test').option('--slowTestThreshold <value>', 'The number of milliseconds after which a test or suite is considered slow').option('--reporter <reporter>', 'Specify the reporter to use').option('-t, --testNamePattern <value>', 'Run only tests with a name that matches the regex').option('--testEnvironment <name>', 'The environment that will be used for testing').option('--testTimeout <value>', 'Timeout of a test in milliseconds').option('--hookTimeout <value>', 'Timeout of hook in milliseconds').option('--hideSkippedTests', 'Hide skipped tests from the output').option('--retry <retry>', 'Number of times to retry a test if it fails').option('--bail [number]', 'Stop running tests after n failures. Set to 0 to run all tests regardless of failures').option('--maxConcurrency <value>', 'Maximum number of concurrent tests').option('--clearMocks', 'Automatically clear mock calls, instances, contexts and results before every test').option('--resetMocks', 'Automatically reset mock state before every test').option('--restoreMocks', 'Automatically restore mock state and implementation before every test').option('--unstubGlobals', 'Restores all global variables that were changed with `rstest.stubGlobal` before every test').option('--unstubEnvs', 'Restores all `process.env` values that were changed with `rstest.stubEnv` before every test').option('--includeTaskLocation', 'Collect test and suite locations. This might increase the running time.');
+};
+const runRest = async ({ options, filters, command })=>{
+    let rstest;
+    try {
+        const { initCli } = await Promise.resolve().then(()=>({
+                initCli: init_initCli
+            }));
+        const { config, configFilePath, projects } = await initCli(options);
+        const { createRstest } = await Promise.resolve().then(()=>({
+                createRstest: core_createRstest
+            }));
+        rstest = createRstest({
+            config,
+            configFilePath,
+            projects
+        }, command, filters.map(normalize));
+        if ('watch' === command && configFilePath) {
+            const { watchFilesForRestart } = await import("./0~6588.js").then((mod)=>({
+                    watchFilesForRestart: mod.watchFilesForRestart
+                }));
+            watchFilesForRestart({
+                rstest,
+                options,
+                filters
+            });
+        }
+        await rstest.runTests();
+    } catch (err) {
+        for (const reporter of rstest?.context.reporters || [])reporter.onExit?.();
+        logger_logger.error('Failed to run Rstest.');
+        logger_logger.error(formatError(err));
+        process.exit(1);
+    }
+};
+function setupCommands() {
+    const cli = dist('rstest');
+    cli.help();
+    cli.version("0.7.7");
+    applyCommonOptions(cli);
+    cli.command('[...filters]', 'run tests').option('-w, --watch', 'Run tests in watch mode').action(async (filters, options)=>{
+        showRstest();
+        if (options.watch) await runRest({
+            options,
+            filters,
+            command: 'watch'
+        });
+        else await runRest({
+            options,
+            filters,
+            command: 'run'
+        });
+    });
+    cli.command('run [...filters]', 'run tests without watch mode').action(async (filters, options)=>{
+        showRstest();
+        await runRest({
+            options,
+            filters,
+            command: 'run'
+        });
+    });
+    cli.command('watch [...filters]', 'run tests in watch mode').action(async (filters, options)=>{
+        showRstest();
+        await runRest({
+            options,
+            filters,
+            command: 'watch'
+        });
+    });
+    cli.command('list [...filters]', 'lists all test files that Rstest will run').option('--filesOnly', 'only list the test files').option('--json [boolean/path]', 'print tests as JSON or write to a file').option('--includeSuites', 'include suites in output').option('--printLocation', 'print test case location').action(async (filters, options)=>{
+        try {
+            const { initCli } = await Promise.resolve().then(()=>({
+                    initCli: init_initCli
+                }));
+            const { config, configFilePath, projects } = await initCli(options);
+            if (options.printLocation) config.includeTaskLocation = true;
+            const { createRstest } = await Promise.resolve().then(()=>({
+                    createRstest: core_createRstest
+                }));
+            const rstest = createRstest({
+                config,
+                configFilePath,
+                projects
+            }, 'list', filters.map(normalize));
+            await rstest.listTests({
+                filesOnly: options.filesOnly,
+                json: options.json,
+                includeSuites: options.includeSuites,
+                printLocation: options.printLocation
+            });
+        } catch (err) {
+            logger_logger.error('Failed to run Rstest list.');
+            logger_logger.error(formatError(err));
+            process.exit(1);
+        }
+    });
+    cli.parse();
+}
+const external_node_fs_ = __webpack_require__("node:fs");
+const picocolors = __webpack_require__("../../node_modules/.pnpm/picocolors@1.1.1/node_modules/picocolors/picocolors.js");
+var picocolors_default = /*#__PURE__*/ __webpack_require__.n(picocolors);
+const findConfig = (basePath)=>DEFAULT_CONFIG_EXTENSIONS.map((ext)=>basePath + ext).find(external_node_fs_["default"].existsSync);
+const resolveConfigPath = (root, customConfig)=>{
+    if (customConfig) {
+        const customConfigPath = isAbsolute(customConfig) ? customConfig : join(root, customConfig);
+        if (external_node_fs_["default"].existsSync(customConfigPath)) return customConfigPath;
+        throw `Cannot find config file: ${picocolors_default().dim(customConfigPath)}`;
+    }
+    const configFilePath = findConfig(join(root, DEFAULT_CONFIG_NAME));
+    if (configFilePath) return configFilePath;
+    return null;
+};
+async function config_loadConfig({ cwd = process.cwd(), path, envMode, configLoader }) {
+    const configFilePath = resolveConfigPath(cwd, path);
+    if (!configFilePath) {
+        logger_logger.debug('no rstest config file found');
+        return {
+            content: {},
+            filePath: configFilePath
+        };
+    }
+    const { content } = await loadConfig({
+        cwd: dirname(configFilePath),
+        path: configFilePath,
+        envMode,
+        loader: configLoader
+    });
+    let config = content;
+    if (config.extends) {
+        const extendsConfig = 'function' == typeof config.extends ? await config.extends(Object.freeze({
+            ...config
+        })) : config.extends;
+        delete extendsConfig.projects;
+        config = mergeRstestConfig(extendsConfig, config);
+    }
+    return {
+        content: config,
+        filePath: configFilePath
+    };
+}
+const mergeProjectConfig = (...configs)=>mergeRstestConfig(...configs);
+const mergeRstestConfig = (...configs)=>configs.reduce((result, config)=>{
+        const merged = mergeRsbuildConfig(result, {
+            ...config,
+            exclude: Array.isArray(config.exclude) ? {
+                patterns: config.exclude,
+                override: false
+            } : config.exclude
+        });
+        if (!Array.isArray(config.exclude) && config.exclude?.override) merged.exclude = {
+            patterns: config.exclude.patterns
+        };
+        merged.include = config.include ?? merged.include;
+        merged.reporters = config.reporters ?? merged.reporters;
+        if (merged.coverage) merged.coverage.reporters = config.coverage?.reporters ?? merged.coverage?.reporters;
+        return merged;
+    }, {});
+const createDefaultConfig = ()=>({
+        root: process.cwd(),
+        name: 'rstest',
+        include: [
+            '**/*.{test,spec}.?(c|m)[jt]s?(x)'
+        ],
+        exclude: {
+            patterns: [
+                '**/node_modules/**',
+                '**/dist/**',
+                '**/.{idea,git,cache,output,temp}/**'
+            ],
+            override: false
+        },
+        setupFiles: [],
+        globalSetup: [],
+        includeSource: [],
+        pool: {
+            type: 'forks'
+        },
+        isolate: true,
+        globals: false,
+        passWithNoTests: false,
+        update: false,
+        testTimeout: 5000,
+        hookTimeout: 10000,
+        testEnvironment: 'node',
+        retry: 0,
+        reporters: 'true' === process.env.GITHUB_ACTIONS ? [
+            'default',
+            'github-actions'
+        ] : [
+            'default'
+        ],
+        clearMocks: false,
+        resetMocks: false,
+        restoreMocks: false,
+        slowTestThreshold: 300,
+        unstubGlobals: false,
+        unstubEnvs: false,
+        maxConcurrency: 5,
+        printConsoleTrace: false,
+        disableConsoleIntercept: false,
+        snapshotFormat: {},
+        env: {},
+        hideSkippedTests: false,
+        logHeapUsage: false,
+        bail: 0,
+        includeTaskLocation: false,
+        coverage: {
+            exclude: [
+                '**/node_modules/**',
+                '**/[.]*',
+                '**/dist/**',
+                '**/test/**',
+                '**/__tests__/**',
+                '**/__mocks__/**',
+                '**/*.d.ts',
+                '**/*.{test,spec}.[jt]s',
+                '**/*.{test,spec}.[cm][jt]s',
+                '**/*.{test,spec}.[jt]sx',
+                '**/*.{test,spec}.[cm][jt]sx'
+            ],
+            enabled: false,
+            provider: 'istanbul',
+            reporters: [
+                'text',
+                'html',
+                'clover',
+                'json'
+            ],
+            reportsDirectory: './coverage',
+            clean: true,
+            reportOnFailure: false
+        }
+    });
+const withDefaultConfig = (config)=>{
+    const merged = mergeRstestConfig(createDefaultConfig(), config);
+    merged.setupFiles = castArray(merged.setupFiles);
+    merged.globalSetup = castArray(merged.globalSetup);
+    merged.exclude.patterns.push(TEMP_RSTEST_OUTPUT_DIR_GLOB);
+    const reportsDirectory = formatRootStr(merged.coverage.reportsDirectory, merged.root);
+    merged.coverage.reportsDirectory = isAbsolute(reportsDirectory) ? reportsDirectory : pathe_M_eThtNZ_resolve(merged.root, reportsDirectory);
+    merged.pool = 'string' == typeof config.pool ? {
+        type: config.pool
+    } : merged.pool;
+    return {
+        ...merged,
+        include: merged.include.map((p)=>formatRootStr(p, merged.root)),
+        exclude: {
+            ...merged.exclude,
+            patterns: merged.exclude.patterns.map((p)=>formatRootStr(p, merged.root))
+        },
+        setupFiles: merged.setupFiles.map((p)=>formatRootStr(p, merged.root)),
+        globalSetup: merged.globalSetup.map((p)=>formatRootStr(p, merged.root)),
+        includeSource: merged.includeSource.map((p)=>formatRootStr(p, merged.root))
+    };
+};
+function mergeWithCLIOptions(config, options) {
+    const keys = [
+        'root',
+        'globals',
+        'isolate',
+        'passWithNoTests',
+        'update',
+        'testNamePattern',
+        'testTimeout',
+        'hookTimeout',
+        'clearMocks',
+        'resetMocks',
+        'restoreMocks',
+        'unstubEnvs',
+        'unstubGlobals',
+        'retry',
+        'slowTestThreshold',
+        'maxConcurrency',
+        'printConsoleTrace',
+        'disableConsoleIntercept',
+        'testEnvironment',
+        'hideSkippedTests',
+        'logHeapUsage'
+    ];
+    for (const key of keys)if (void 0 !== options[key]) config[key] = options[key];
+    if (options.reporter) config.reporters = castArray(options.reporter);
+    if (void 0 !== options.bail && ('number' == typeof options.bail || 'boolean' == typeof options.bail)) config.bail = Number(options.bail);
+    if (void 0 !== options.coverage) {
+        config.coverage ??= {};
+        config.coverage.enabled = options.coverage;
+    }
+    if (options.exclude) config.exclude = castArray(options.exclude);
+    if (options.include) config.include = castArray(options.include);
+    return config;
+}
+async function resolveConfig(options) {
+    const { content: config, filePath: configFilePath } = await config_loadConfig({
+        cwd: options.cwd,
+        path: options.config,
+        configLoader: options.configLoader
+    });
+    const mergedConfig = mergeWithCLIOptions(config, options);
+    if (!mergedConfig.root) mergedConfig.root = options.cwd;
+    return {
+        config: mergedConfig,
+        configFilePath: configFilePath ?? void 0
+    };
+}
+async function resolveProjects({ config, root, options }) {
+    if (!config.projects) return [];
+    const getDefaultProjectName = (dir)=>{
+        const pkgJsonPath = pathe_M_eThtNZ_resolve(dir, 'package.json');
+        const name = (0, external_node_fs_.existsSync)(pkgJsonPath) ? JSON.parse((0, external_node_fs_.readFileSync)(pkgJsonPath, 'utf-8')).name : '';
+        if ('string' != typeof name || !name) return basename(dir);
+        return name;
+    };
+    const globProjects = async (patterns, root)=>{
+        const globOptions = {
+            absolute: true,
+            dot: true,
+            onlyFiles: false,
+            cwd: root,
+            expandDirectories: false,
+            ignore: [
+                '**/node_modules/**',
+                '**/.DS_Store'
+            ]
+        };
+        return glob(patterns, globOptions);
+    };
+    const resolvedProjectPaths = new Set();
+    const getProjects = async (rstestConfig, root)=>{
+        const { projectPaths, projectPatterns, projectConfigs } = (rstestConfig.projects || []).reduce((total, p)=>{
+            if ('object' == typeof p) {
+                const projectRoot = p.root ? formatRootStr(p.root, root) : root;
+                total.projectConfigs.push({
+                    config: mergeWithCLIOptions({
+                        root: projectRoot,
+                        ...p,
+                        name: p.name ? p.name : getDefaultProjectName(projectRoot)
+                    }, options),
+                    configFilePath: void 0
+                });
+                return total;
+            }
+            const projectStr = formatRootStr(p, root);
+            if (isDynamicPattern(projectStr)) total.projectPatterns.push(projectStr);
+            else {
+                const absolutePath = getAbsolutePath(root, projectStr);
+                if (!(0, external_node_fs_.existsSync)(absolutePath)) throw `Can't resolve project "${p}", please make sure "${p}" is a existing file or a directory.`;
+                total.projectPaths.push(absolutePath);
+            }
+            return total;
+        }, {
+            projectPaths: [],
+            projectPatterns: [],
+            projectConfigs: []
+        });
+        projectPaths.push(...await globProjects(projectPatterns, root));
+        const projects = [];
+        await Promise.all(projectPaths.map(async (project)=>{
+            const isDirectory = (0, external_node_fs_.statSync)(project).isDirectory();
+            const projectRoot = isDirectory ? project : dirname(project);
+            const { config, configFilePath } = await resolveConfig({
+                ...options,
+                config: isDirectory ? void 0 : project,
+                cwd: projectRoot
+            });
+            if (configFilePath) {
+                if (resolvedProjectPaths.has(configFilePath)) return;
+                resolvedProjectPaths.add(configFilePath);
+            }
+            config.name ??= getDefaultProjectName(projectRoot);
+            if (config.projects?.length) {
+                const childProjects = await getProjects(config, projectRoot);
+                projects.push(...childProjects);
+            } else projects.push({
+                config,
+                configFilePath
+            });
+        }));
+        return projects.concat(projectConfigs);
+    };
+    const projects = await getProjects(config, root).then((p)=>filterProjects(p, options));
+    if (!projects.length) {
+        let errorMsg = `No projects found, please make sure you have at least one valid project.
+${picocolors_default().gray('projects:')} ${JSON.stringify(config.projects, null, 2)}`;
+        if (options.project) errorMsg += `\n${picocolors_default().gray('projectName filter:')} ${JSON.stringify(options.project, null, 2)}`;
+        throw errorMsg;
+    }
+    const names = new Set();
+    projects.forEach((project)=>{
+        if (names.has(project.config.name)) {
+            const conflictProjects = projects.filter((p)=>p.config.name === project.config.name);
+            throw `Project name "${project.config.name}" is already used. Please ensure all projects have unique names.
+Conflicting projects:
+${conflictProjects.map((p)=>`- ${p.configFilePath || p.config.root}`).join('\n')}
+        `;
+        }
+        names.add(project.config.name);
+    });
+    return projects;
+}
+async function init_initCli(options) {
+    const cwd = process.cwd();
+    const root = options.root ? getAbsolutePath(cwd, options.root) : cwd;
+    const { config, configFilePath } = await resolveConfig({
+        ...options,
+        cwd: options.root ? getAbsolutePath(cwd, options.root) : cwd
+    });
+    const projects = await resolveProjects({
+        config,
+        root,
+        options
+    });
+    return {
+        config,
+        configFilePath,
+        projects
+    };
+}
+async function runCLI() {
+    prepareCli();
+    try {
+        setupCommands();
+    } catch (err) {
+        logger_logger.error('Failed to start Rstest CLI.');
+        logger_logger.error(err);
+    }
+}
+class SnapshotManager {
+    summary;
+    extension = ".snap";
+    constructor(options){
+        this.options = options;
+        this.clear();
+    }
+    clear() {
+        this.summary = emptySummary(this.options);
+    }
+    add(result) {
+        addSnapshotResult(this.summary, result);
+    }
+    resolvePath(testPath, context) {
+        const resolver = this.options.resolveSnapshotPath || (()=>join(join(dirname(testPath), "__snapshots__"), `${basename(testPath)}${this.extension}`));
+        const path = resolver(testPath, this.extension, context);
+        return path;
+    }
+    resolveRawPath(testPath, rawPath) {
+        return isAbsolute(rawPath) ? rawPath : pathe_M_eThtNZ_resolve(dirname(testPath), rawPath);
+    }
+}
+function emptySummary(options) {
+    const summary = {
+        added: 0,
+        failure: false,
+        filesAdded: 0,
+        filesRemoved: 0,
+        filesRemovedList: [],
+        filesUnmatched: 0,
+        filesUpdated: 0,
+        matched: 0,
+        total: 0,
+        unchecked: 0,
+        uncheckedKeysByFile: [],
+        unmatched: 0,
+        updated: 0,
+        didUpdate: "all" === options.updateSnapshot
+    };
+    return summary;
+}
+function addSnapshotResult(summary, result) {
+    if (result.added) summary.filesAdded++;
+    if (result.fileDeleted) summary.filesRemoved++;
+    if (result.unmatched) summary.filesUnmatched++;
+    if (result.updated) summary.filesUpdated++;
+    summary.added += result.added;
+    summary.matched += result.matched;
+    summary.unchecked += result.unchecked;
+    if (result.uncheckedKeys && result.uncheckedKeys.length > 0) summary.uncheckedKeysByFile.push({
+        filePath: result.filepath,
+        keys: result.uncheckedKeys
+    });
+    summary.unmatched += result.unmatched;
+    summary.updated += result.updated;
+    summary.total += result.added + result.matched + result.unmatched + result.updated;
+}
+const dist_r = Object.create(null), dist_i = (e)=>globalThis.process?.env || {
+        MODE: "production",
+        DEV: false,
+        PROD: true,
+        BASE_URL: "/",
+        ASSET_PREFIX: "auto"
+    }, dist_o = new Proxy(dist_r, {
+    get (e, s) {
+        return dist_i()[s] ?? dist_r[s];
+    },
+    has (e, s) {
+        const E = dist_i();
+        return s in E || s in dist_r;
+    },
+    set (e, s, E) {
+        const B = dist_i(!0);
+        return B[s] = E, !0;
+    },
+    deleteProperty (e, s) {
+        if (!s) return !1;
+        const E = dist_i(!0);
+        return delete E[s], !0;
+    },
+    ownKeys () {
+        const e = dist_i(!0);
+        return Object.keys(e);
+    }
+}), dist_t = typeof process < "u" && process.env && process.env.NODE_ENV || "", f = [
+    [
+        "APPVEYOR"
+    ],
+    [
+        "AWS_AMPLIFY",
+        "AWS_APP_ID",
+        {
+            ci: !0
+        }
+    ],
+    [
+        "AZURE_PIPELINES",
+        "SYSTEM_TEAMFOUNDATIONCOLLECTIONURI"
+    ],
+    [
+        "AZURE_STATIC",
+        "INPUT_AZURE_STATIC_WEB_APPS_API_TOKEN"
+    ],
+    [
+        "APPCIRCLE",
+        "AC_APPCIRCLE"
+    ],
+    [
+        "BAMBOO",
+        "bamboo_planKey"
+    ],
+    [
+        "BITBUCKET",
+        "BITBUCKET_COMMIT"
+    ],
+    [
+        "BITRISE",
+        "BITRISE_IO"
+    ],
+    [
+        "BUDDY",
+        "BUDDY_WORKSPACE_ID"
+    ],
+    [
+        "BUILDKITE"
+    ],
+    [
+        "CIRCLE",
+        "CIRCLECI"
+    ],
+    [
+        "CIRRUS",
+        "CIRRUS_CI"
+    ],
+    [
+        "CLOUDFLARE_PAGES",
+        "CF_PAGES",
+        {
+            ci: !0
+        }
+    ],
+    [
+        "CLOUDFLARE_WORKERS",
+        "WORKERS_CI",
+        {
+            ci: !0
+        }
+    ],
+    [
+        "CODEBUILD",
+        "CODEBUILD_BUILD_ARN"
+    ],
+    [
+        "CODEFRESH",
+        "CF_BUILD_ID"
+    ],
+    [
+        "DRONE"
+    ],
+    [
+        "DRONE",
+        "DRONE_BUILD_EVENT"
+    ],
+    [
+        "DSARI"
+    ],
+    [
+        "GITHUB_ACTIONS"
+    ],
+    [
+        "GITLAB",
+        "GITLAB_CI"
+    ],
+    [
+        "GITLAB",
+        "CI_MERGE_REQUEST_ID"
+    ],
+    [
+        "GOCD",
+        "GO_PIPELINE_LABEL"
+    ],
+    [
+        "LAYERCI"
+    ],
+    [
+        "HUDSON",
+        "HUDSON_URL"
+    ],
+    [
+        "JENKINS",
+        "JENKINS_URL"
+    ],
+    [
+        "MAGNUM"
+    ],
+    [
+        "NETLIFY"
+    ],
+    [
+        "NETLIFY",
+        "NETLIFY_LOCAL",
+        {
+            ci: !1
+        }
+    ],
+    [
+        "NEVERCODE"
+    ],
+    [
+        "RENDER"
+    ],
+    [
+        "SAIL",
+        "SAILCI"
+    ],
+    [
+        "SEMAPHORE"
+    ],
+    [
+        "SCREWDRIVER"
+    ],
+    [
+        "SHIPPABLE"
+    ],
+    [
+        "SOLANO",
+        "TDDIUM"
+    ],
+    [
+        "STRIDER"
+    ],
+    [
+        "TEAMCITY",
+        "TEAMCITY_VERSION"
+    ],
+    [
+        "TRAVIS"
+    ],
+    [
+        "VERCEL",
+        "NOW_BUILDER"
+    ],
+    [
+        "VERCEL",
+        "VERCEL",
+        {
+            ci: !1
+        }
+    ],
+    [
+        "VERCEL",
+        "VERCEL_ENV",
+        {
+            ci: !1
+        }
+    ],
+    [
+        "APPCENTER",
+        "APPCENTER_BUILD_ID"
+    ],
+    [
+        "CODESANDBOX",
+        "CODESANDBOX_SSE",
+        {
+            ci: !1
+        }
+    ],
+    [
+        "CODESANDBOX",
+        "CODESANDBOX_HOST",
+        {
+            ci: !1
+        }
+    ],
+    [
+        "STACKBLITZ"
+    ],
+    [
+        "STORMKIT"
+    ],
+    [
+        "CLEAVR"
+    ],
+    [
+        "ZEABUR"
+    ],
+    [
+        "CODESPHERE",
+        "CODESPHERE_APP_ID",
+        {
+            ci: !0
+        }
+    ],
+    [
+        "RAILWAY",
+        "RAILWAY_PROJECT_ID"
+    ],
+    [
+        "RAILWAY",
+        "RAILWAY_SERVICE_ID"
+    ],
+    [
+        "DENO-DEPLOY",
+        "DENO_DEPLOYMENT_ID"
+    ],
+    [
+        "FIREBASE_APP_HOSTING",
+        "FIREBASE_APP_HOSTING",
+        {
+            ci: !0
+        }
+    ]
+];
+function dist_b() {
+    if (globalThis.process?.env) for (const e of f){
+        const s = e[1] || e[0];
+        if (globalThis.process?.env[s]) return {
+            name: e[0].toLowerCase(),
+            ...e[2]
+        };
+    }
+    return globalThis.process?.env?.SHELL === "/bin/jsh" && globalThis.process?.versions?.webcontainer ? {
+        name: "stackblitz",
+        ci: !1
+    } : {
+        name: "",
+        ci: !1
+    };
+}
+const l = dist_b();
+l.name;
+function n(e) {
+    return e ? "false" !== e : !1;
+}
+const I = globalThis.process?.platform || "", T = n(dist_o.CI) || !1 !== l.ci, R = n(globalThis.process?.stdout && globalThis.process?.stdout.isTTY), A = (n(dist_o.DEBUG), "test" === dist_t || n(dist_o.TEST), n(dist_o.MINIMAL), /^win/i.test(I)), C = (/^linux/i.test(I), /^darwin/i.test(I), !n(dist_o.NO_COLOR) && (n(dist_o.FORCE_COLOR) || (R || A) && dist_o.TERM), (globalThis.process?.versions?.node || "").replace(/^v/, "") || null), W = (Number(C?.split(".")[0]), globalThis.process || Object.create(null)), dist_ = {
+    versions: {}
+}, O = (new Proxy(W, {
+    get (e, s) {
+        if ("env" === s) return dist_o;
+        if (s in e) return e[s];
+        if (s in dist_) return dist_[s];
+    }
+}), globalThis.process?.release?.name === "node"), c = !!globalThis.Bun || !!globalThis.process?.versions?.bun, D = !!globalThis.Deno, L = !!globalThis.fastly, S = !!globalThis.Netlify, u = !!globalThis.EdgeRuntime, N = globalThis.navigator?.userAgent === "Cloudflare-Workers", F = [
+    [
+        S,
+        "netlify"
+    ],
+    [
+        u,
+        "edge-light"
+    ],
+    [
+        N,
+        "workerd"
+    ],
+    [
+        L,
+        "fastly"
+    ],
+    [
+        D,
+        "deno"
+    ],
+    [
+        c,
+        "bun"
+    ],
+    [
+        O,
+        "node"
+    ]
+];
+function G() {
+    const e = F.find((s)=>s[0]);
+    if (e) return {
+        name: e[1]
+    };
+}
+const P = G();
+P?.name;
+const getSummaryStatusString = (tasks, name = 'tests', showTotal = true)=>{
+    if (0 === tasks.length) return picocolors_default().dim(`no ${name}`);
+    const passed = tasks.filter((result)=>'pass' === result.status);
+    const failed = tasks.filter((result)=>'fail' === result.status);
+    const skipped = tasks.filter((result)=>'skip' === result.status);
+    const todo = tasks.filter((result)=>'todo' === result.status);
+    const status = [
+        failed.length ? picocolors_default().bold(picocolors_default().red(`${failed.length} failed`)) : null,
+        passed.length ? picocolors_default().bold(picocolors_default().green(`${passed.length} passed`)) : null,
+        skipped.length ? picocolors_default().yellow(`${skipped.length} skipped`) : null,
+        todo.length ? picocolors_default().gray(`${todo.length} todo`) : null
+    ].filter(Boolean);
+    return status.join(picocolors_default().dim(' | ')) + (showTotal && status.length > 1 ? picocolors_default().gray(` (${tasks.length})`) : '');
+};
+const printSnapshotSummaryLog = (snapshots, rootDir)=>{
+    const summary = [];
+    if (snapshots.added) summary.push(picocolors_default().bold(picocolors_default().green(`${snapshots.added} written`)));
+    if (snapshots.unmatched) summary.push(picocolors_default().bold(picocolors_default().red(`${snapshots.unmatched} failed`)));
+    if (snapshots.updated) summary.push(picocolors_default().bold(picocolors_default().green(`${snapshots.updated} updated `)));
+    if (snapshots.filesRemoved) if (snapshots.didUpdate) summary.push(picocolors_default().bold(picocolors_default().green(`${snapshots.filesRemoved} files removed `)));
+    else summary.push(picocolors_default().bold(picocolors_default().yellow(`${snapshots.filesRemoved} files obsolete `)));
+    if (snapshots.filesRemovedList?.length) {
+        const [head, ...tail] = snapshots.filesRemovedList;
+        summary.push(`${picocolors_default().gray("➜")} ${formatTestPath(rootDir, head)}`);
+        for (const key of tail)summary.push(`  ${formatTestPath(rootDir, key)}`);
+    }
+    if (snapshots.unchecked) {
+        if (snapshots.didUpdate) summary.push(picocolors_default().bold(picocolors_default().green(`${snapshots.unchecked} removed`)));
+        else summary.push(picocolors_default().bold(picocolors_default().yellow(`${snapshots.unchecked} obsolete`)));
+        for (const uncheckedFile of snapshots.uncheckedKeysByFile){
+            summary.push(`${picocolors_default().gray("➜")} ${formatTestPath(rootDir, uncheckedFile.filePath)}`);
+            for (const key of uncheckedFile.keys)summary.push(`  ${key}`);
+        }
+    }
+    for (const [index, snapshot] of summary.entries()){
+        const title = 0 === index ? 'Snapshots' : '';
+        logger_logger.log(`${picocolors_default().gray(title.padStart(12))} ${snapshot}`);
+    }
+};
+const TestFileSummaryLabel = picocolors_default().gray('Test Files'.padStart(11));
+const TestSummaryLabel = picocolors_default().gray('Tests'.padStart(11));
+const DurationLabel = picocolors_default().gray('Duration'.padStart(11));
+const printSummaryLog = ({ results, testResults, snapshotSummary, duration, rootPath })=>{
+    logger_logger.log('');
+    printSnapshotSummaryLog(snapshotSummary, rootPath);
+    logger_logger.log(`${TestFileSummaryLabel} ${getSummaryStatusString(results)}`);
+    logger_logger.log(`${TestSummaryLabel} ${getSummaryStatusString(testResults)}`);
+    logger_logger.log(`${DurationLabel} ${prettyTime(duration.totalTime)} ${picocolors_default().gray(`(build ${prettyTime(duration.buildTime)}, tests ${prettyTime(duration.testTime)})`)}`);
+    logger_logger.log('');
+};
+const printSummaryErrorLogs = async ({ testResults, results, rootPath, unhandledErrors, getSourcemap, filterRerunTestPaths })=>{
+    const failedTests = [
+        ...results.filter((i)=>'fail' === i.status && i.errors?.length && (filterRerunTestPaths ? filterRerunTestPaths.includes(i.testPath) : true)),
+        ...testResults.filter((i)=>'fail' === i.status && (filterRerunTestPaths ? filterRerunTestPaths.includes(i.testPath) : true))
+    ];
+    if (0 === failedTests.length && !unhandledErrors?.length) return;
+    logger_logger.stderr('');
+    logger_logger.stderr(picocolors_default().bold('Summary of all failing tests:'));
+    logger_logger.stderr('');
+    const { printError } = await Promise.resolve().then(()=>({
+            printError: error_printError
+        }));
+    for (const error of unhandledErrors || []){
+        logger_logger.stderr(bgColor('bgRed', ' Unhandled Error '));
+        await printError(error, getSourcemap, rootPath);
+    }
+    for (const test of failedTests){
+        const relativePath = posix.relative(rootPath, test.testPath);
+        const nameStr = getTaskNameWithPrefix(test);
+        logger_logger.stderr(`${bgColor('bgRed', ' FAIL ')} ${prettyTestPath(relativePath)} ${nameStr.length ? `${picocolors_default().dim(">")} ${nameStr}` : ''}`);
+        if (test.errors) {
+            const { printError } = await Promise.resolve().then(()=>({
+                    printError: error_printError
+                }));
+            for (const error of test.errors)await printError(error, getSourcemap, rootPath);
+        }
+    }
+};
+const external_node_util_ = __webpack_require__("node:util");
+const DEFAULT_RENDER_INTERVAL_MS = 1000;
+const ESC = '\x1B[';
+const CLEAR_LINE = `${ESC}K`;
+const MOVE_CURSOR_ONE_ROW_UP = `${ESC}1A`;
+const SYNC_START = `${ESC}?2026h`;
+const SYNC_END = `${ESC}?2026l`;
+class WindowRenderer {
+    options;
+    streams;
+    buffer = [];
+    renderInterval = void 0;
+    renderScheduled = false;
+    windowHeight = 0;
+    finished = false;
+    cleanups = [];
+    constructor(options){
+        this.options = {
+            interval: DEFAULT_RENDER_INTERVAL_MS,
+            ...options
+        };
+        this.streams = {
+            output: options.logger.outputStream.write.bind(options.logger.outputStream),
+            error: options.logger.errorStream.write.bind(options.logger.errorStream)
+        };
+        this.cleanups.push(this.interceptStream(process.stdout, 'output'), this.interceptStream(process.stderr, 'error'));
+        this.start();
+    }
+    start() {
+        this.finished = false;
+        this.renderInterval = setInterval(()=>this.schedule(), this.options.interval).unref();
+    }
+    stop() {
+        this.cleanups.splice(0).map((fn)=>fn());
+        clearInterval(this.renderInterval);
+    }
+    finish() {
+        this.finished = true;
+        this.flushBuffer();
+        clearInterval(this.renderInterval);
+    }
+    schedule() {
+        if (!this.renderScheduled) {
+            this.renderScheduled = true;
+            this.flushBuffer();
+            setTimeout(()=>{
+                this.renderScheduled = false;
+            }, 100).unref();
+        }
+    }
+    flushBuffer() {
+        if (0 === this.buffer.length) return this.render();
+        let current;
+        for (const next of this.buffer.splice(0)){
+            if (!current) {
+                current = next;
+                continue;
+            }
+            if (current.type !== next.type) {
+                this.render(current.message, current.type);
+                current = next;
+                continue;
+            }
+            current.message += next.message;
+        }
+        if (current) this.render(current?.message, current?.type);
+    }
+    render(message, type = 'output') {
+        if (this.finished) {
+            this.clearWindow();
+            return this.write(message || '', type);
+        }
+        const windowContent = this.options.getWindow();
+        const rowCount = getRenderedRowCount(windowContent, this.options.logger.getColumns());
+        let padding = this.windowHeight - rowCount;
+        if (padding > 0 && message) padding -= getRenderedRowCount([
+            message
+        ], this.options.logger.getColumns());
+        this.write(SYNC_START);
+        this.clearWindow();
+        if (message) this.write(message, type);
+        if (padding > 0) this.write('\n'.repeat(padding));
+        this.write(windowContent.join('\n'));
+        this.write(SYNC_END);
+        this.windowHeight = rowCount + Math.max(0, padding);
+    }
+    clearWindow() {
+        if (0 === this.windowHeight) return;
+        this.write(CLEAR_LINE);
+        for(let i = 1; i < this.windowHeight; i++)this.write(`${MOVE_CURSOR_ONE_ROW_UP}${CLEAR_LINE}`);
+        this.windowHeight = 0;
+    }
+    interceptStream(stream, type) {
+        const original = stream.write.bind(stream);
+        stream.write = (chunk, _, callback)=>{
+            if (chunk) if (this.finished) this.write(chunk.toString(), type);
+            else this.buffer.push({
+                type,
+                message: chunk.toString()
+            });
+            callback?.();
+        };
+        return function restore() {
+            stream.write = original;
+        };
+    }
+    write(message, type = 'output') {
+        this.streams[type](message);
+    }
+}
+function getRenderedRowCount(rows, columns) {
+    let count = 0;
+    for (const row of rows){
+        const text = (0, external_node_util_.stripVTControlCharacters)(row);
+        count += Math.max(1, Math.ceil(text.length / columns));
+    }
+    return count;
+}
+class StatusRenderer {
+    rootPath;
+    renderer;
+    startTime = void 0;
+    testState;
+    constructor(rootPath, state, logger){
+        this.rootPath = rootPath;
+        this.renderer = new WindowRenderer({
+            getWindow: ()=>this.getContent(),
+            logger: logger ?? {
+                outputStream: process.stdout,
+                errorStream: process.stderr,
+                getColumns: ()=>'columns' in process.stdout ? process.stdout.columns : 80
+            }
+        });
+        this.testState = state;
+    }
+    getContent() {
+        this.startTime ??= Date.now();
+        const now = Date.now();
+        const summary = [];
+        const runningModules = this.testState.getRunningModules();
+        const testModules = this.testState.getTestModules();
+        const shouldDisplayRunningTests = (runningTests)=>runningTests[0]?.startTime && now - runningTests[0].startTime > 2000;
+        for (const [module, { runningTests }] of runningModules.entries()){
+            const relativePath = relative(this.rootPath, module);
+            summary.push(`${bgColor('bgYellow', ' RUNS ')} ${prettyTestPath(relativePath)}`);
+            if (runningTests.length && shouldDisplayRunningTests(runningTests)) {
+                let caseLog = ` ${picocolors_default().gray("➜")} ${getTaskNameWithPrefix(runningTests[0])} ${picocolors_default().magenta(prettyTime(now - runningTests[0].startTime))}`;
+                if (runningTests.length > 1) caseLog += picocolors_default().gray(` and ${runningTests.length - 1} more cases`);
+                summary.push(caseLog);
+            }
+        }
+        summary.push('');
+        if (0 === testModules.length) summary.push(`${TestFileSummaryLabel} ${runningModules.size} total`);
+        else summary.push(`${TestFileSummaryLabel} ${getSummaryStatusString(testModules, '', false)} ${picocolors_default().dim('|')} ${runningModules.size + testModules.length} total`);
+        const testResults = Array.from(runningModules.values()).flatMap(({ results })=>results).concat(testModules.flatMap((mod)=>mod.results));
+        if (testResults.length) summary.push(`${TestSummaryLabel} ${getSummaryStatusString(testResults, '', false)}`);
+        summary.push(`${DurationLabel} ${prettyTime(Date.now() - this.startTime)}`);
+        summary.push('');
+        return summary;
+    }
+    onTestFileStart() {
+        this.renderer?.schedule();
+    }
+    onTestCaseResult() {
+        this.renderer?.schedule();
+    }
+    onTestFileResult() {
+        this.renderer?.schedule();
+    }
+    clear() {
+        this.startTime = void 0;
+        this.renderer?.finish();
+    }
+}
+const statusStr = {
+    fail: '✗',
+    pass: '✓',
+    todo: '-',
+    skip: '-'
+};
+const statusColorfulStr = {
+    fail: picocolors_default().red(statusStr.fail),
+    pass: picocolors_default().green(statusStr.pass),
+    todo: picocolors_default().gray(statusStr.todo),
+    skip: picocolors_default().gray(statusStr.skip)
+};
+const logCase = (result, options)=>{
+    const isSlowCase = (result.duration || 0) > options.slowTestThreshold;
+    if (options.hideSkippedTests && 'skip' === result.status) return;
+    const icon = isSlowCase && 'pass' === result.status ? picocolors_default().yellow(statusStr[result.status]) : statusColorfulStr[result.status];
+    const nameStr = getTaskNameWithPrefix(result);
+    const duration = void 0 !== result.duration ? ` (${prettyTime(result.duration)})` : '';
+    const retry = result.retryCount ? picocolors_default().yellow(` (retry x${result.retryCount})`) : '';
+    const heap = result.heap ? ` ${picocolors_default().magenta(formatHeapUsed(result.heap))}` : '';
+    logger_logger.log(`  ${icon} ${nameStr}${picocolors_default().gray(duration)}${retry}${heap}`);
+    if (result.errors) for (const error of result.errors)logger_logger.log(picocolors_default().red(`    ${error.message}`));
+};
+const formatHeapUsed = (heap)=>`${Math.floor(heap / 1024 / 1024)} MB heap used`;
+const logFileTitle = (test, relativePath, alwaysShowTime = false)=>{
+    let title = ` ${picocolors_default().bold(statusColorfulStr[test.status])} ${prettyTestPath(relativePath)}`;
+    const formatDuration = (duration)=>picocolors_default().green(prettyTime(duration));
+    title += ` ${picocolors_default().gray(`(${test.results.length})`)}`;
+    if (alwaysShowTime) title += ` ${formatDuration(test.duration)}`;
+    if (test.heap) title += ` ${picocolors_default().magenta(formatHeapUsed(test.heap))}`;
+    logger_logger.log(title);
+};
+class DefaultReporter {
+    rootPath;
+    config;
+    options = {};
+    statusRenderer;
+    testState;
+    constructor({ rootPath, options, config, testState }){
+        this.rootPath = rootPath;
+        this.config = config;
+        this.options = options;
+        this.testState = testState;
+        if (isTTY() || options.logger) this.statusRenderer = new StatusRenderer(rootPath, testState, options.logger);
+    }
+    onTestFileStart() {
+        this.statusRenderer?.onTestFileStart();
+    }
+    onTestFileResult(test) {
+        this.statusRenderer?.onTestFileResult();
+        const relativePath = relative(this.rootPath, test.testPath);
+        const { slowTestThreshold } = this.config;
+        logFileTitle(test, relativePath);
+        const showAllCases = this.testState.getTestFiles()?.length === 1;
+        for (const result of test.results){
+            const isDisplayed = showAllCases || 'fail' === result.status || (result.duration ?? 0) > slowTestThreshold || (result.retryCount ?? 0) > 0;
+            isDisplayed && logCase(result, {
+                slowTestThreshold,
+                hideSkippedTests: this.config.hideSkippedTests
+            });
+        }
+    }
+    onTestCaseResult() {
+        this.statusRenderer?.onTestCaseResult();
+    }
+    onUserConsoleLog(log) {
+        const shouldLog = this.config.onConsoleLog?.(log.content) ?? true;
+        if (!shouldLog) return;
+        const titles = [];
+        const testPath = relative(this.rootPath, log.testPath);
+        if (log.trace) {
+            const [frame] = stack_trace_parser_esm_parse(log.trace);
+            const filePath = relative(this.rootPath, frame.file || '');
+            if (filePath !== testPath) titles.push(testPath);
+            titles.push(`${filePath}:${frame.lineNumber}:${frame.column}`);
+        } else titles.push(testPath);
+        const logOutput = 'stdout' === log.type ? logger_logger.log : logger_logger.stderr;
+        logOutput('');
+        logOutput(`${log.name}${picocolors_default().gray(picocolors_default().dim(` | ${titles.join(picocolors_default().gray(picocolors_default().dim(' | ')))}`))}`);
+        logOutput(log.content);
+        logOutput('');
+    }
+    async onExit() {
+        this.statusRenderer?.clear();
+    }
+    async onTestRunEnd({ results, testResults, duration, getSourcemap, snapshotSummary, filterRerunTestPaths, unhandledErrors }) {
+        this.statusRenderer?.clear();
+        if (false === this.options.summary) return;
+        await printSummaryErrorLogs({
+            testResults,
+            results,
+            unhandledErrors,
+            rootPath: this.rootPath,
+            getSourcemap,
+            filterRerunTestPaths
+        });
+        printSummaryLog({
+            results,
+            testResults,
+            duration,
+            rootPath: this.rootPath,
+            snapshotSummary
+        });
+    }
+}
+class GithubActionsReporter {
+    onWritePath;
+    rootPath;
+    constructor({ options, rootPath }){
+        this.onWritePath = options.onWritePath;
+        this.rootPath = rootPath;
+    }
+    log(message) {
+        logger_logger.log(`${message}\n`);
+    }
+    async onTestRunEnd({ results, testResults, getSourcemap }) {
+        const failedTests = [
+            ...results.filter((i)=>'fail' === i.status && i.errors?.length),
+            ...testResults.filter((i)=>'fail' === i.status)
+        ];
+        if (0 === failedTests.length) return;
+        const { parseErrorStacktrace } = await Promise.resolve().then(()=>({
+                parseErrorStacktrace: error_parseErrorStacktrace
+            }));
+        const logs = [];
+        for (const test of failedTests){
+            const { testPath } = test;
+            const nameStr = getTaskNameWithPrefix(test);
+            const shortPath = relative(this.rootPath, testPath);
+            const title = `${shortPath} > ${nameStr}`;
+            for (const error of test.errors || []){
+                let file = testPath;
+                let line = 1;
+                let column = 1;
+                const message = `${error.message}${error.diff ? `\n${error.diff}` : ''}`;
+                const type = 'error';
+                if (error.stack) {
+                    const stackFrames = await parseErrorStacktrace({
+                        stack: error.stack,
+                        fullStack: error.fullStack,
+                        getSourcemap
+                    });
+                    if (stackFrames[0]) {
+                        file = stackFrames[0].file || test.testPath;
+                        line = stackFrames[0].lineNumber || 1;
+                        column = stackFrames[0].column || 1;
+                    }
+                }
+                logs.push(`::${type} file=${this.onWritePath?.(file) || file},line=${line},col=${column},title=${escapeData(title)}::${escapeData(message)}`);
+            }
+        }
+        this.log('::group::Error for GitHub Actions');
+        for (const log of logs)this.log(log);
+        this.log('::endgroup::');
+    }
+}
+function escapeData(s) {
+    return s.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A').replace(/:/g, '%3A').replace(/,/g, '%2C');
+}
+function ansiRegex({ onlyFirst = false } = {}) {
+    const ST = '(?:\\u0007|\\u001B\\u005C|\\u009C)';
+    const pattern = [
+        `[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]+)*|[a-zA-Z\\d]+(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?${ST})`,
+        '(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-nq-uy=><~]))'
+    ].join('|');
+    return new RegExp(pattern, onlyFirst ? void 0 : 'g');
+}
+const regex = ansiRegex();
+function stripAnsi(string) {
+    if ('string' != typeof string) throw new TypeError(`Expected a \`string\`, got \`${typeof string}\``);
+    return string.replace(regex, '');
+}
+const schemeRegex = /^[\w+.-]+:\/\//;
+const urlRegex = /^([\w+.-]+:)\/\/([^@/#?]*@)?([^:/#?]*)(:\d+)?(\/[^#?]*)?(\?[^#]*)?(#.*)?/;
+const fileRegex = /^file:(?:\/\/((?![a-z]:)[^/#?]*)?)?(\/?[^#?]*)(\?[^#]*)?(#.*)?/i;
+function isAbsoluteUrl(input) {
+    return schemeRegex.test(input);
+}
+function isSchemeRelativeUrl(input) {
+    return input.startsWith('//');
+}
+function isAbsolutePath(input) {
+    return input.startsWith('/');
+}
+function isFileUrl(input) {
+    return input.startsWith('file:');
+}
+function isRelative(input) {
+    return /^[.?#]/.test(input);
+}
+function parseAbsoluteUrl(input) {
+    const match = urlRegex.exec(input);
+    return makeUrl(match[1], match[2] || '', match[3], match[4] || '', match[5] || '/', match[6] || '', match[7] || '');
+}
+function parseFileUrl(input) {
+    const match = fileRegex.exec(input);
+    const path = match[2];
+    return makeUrl('file:', '', match[1] || '', '', isAbsolutePath(path) ? path : '/' + path, match[3] || '', match[4] || '');
+}
+function makeUrl(scheme, user, host, port, path, query, hash) {
+    return {
+        scheme,
+        user,
+        host,
+        port,
+        path,
+        query,
+        hash,
+        type: 7
+    };
+}
+function parseUrl(input) {
+    if (isSchemeRelativeUrl(input)) {
+        const url = parseAbsoluteUrl('http:' + input);
+        url.scheme = '';
+        url.type = 6;
+        return url;
+    }
+    if (isAbsolutePath(input)) {
+        const url = parseAbsoluteUrl('http://foo.com' + input);
+        url.scheme = '';
+        url.host = '';
+        url.type = 5;
+        return url;
+    }
+    if (isFileUrl(input)) return parseFileUrl(input);
+    if (isAbsoluteUrl(input)) return parseAbsoluteUrl(input);
+    const url = parseAbsoluteUrl('http://foo.com/' + input);
+    url.scheme = '';
+    url.host = '';
+    url.type = input ? input.startsWith('?') ? 3 : input.startsWith('#') ? 2 : 4 : 1;
+    return url;
+}
+function stripPathFilename(path) {
+    if (path.endsWith('/..')) return path;
+    const index = path.lastIndexOf('/');
+    return path.slice(0, index + 1);
+}
+function mergePaths(url, base) {
+    normalizePath(base, base.type);
+    if ('/' === url.path) url.path = base.path;
+    else url.path = stripPathFilename(base.path) + url.path;
+}
+function normalizePath(url, type) {
+    const rel = type <= 4;
+    const pieces = url.path.split('/');
+    let pointer = 1;
+    let positive = 0;
+    let addTrailingSlash = false;
+    for(let i = 1; i < pieces.length; i++){
+        const piece = pieces[i];
+        if (!piece) {
+            addTrailingSlash = true;
+            continue;
+        }
+        addTrailingSlash = false;
+        if ('.' !== piece) {
+            if ('..' === piece) {
+                if (positive) {
+                    addTrailingSlash = true;
+                    positive--;
+                    pointer--;
+                } else if (rel) pieces[pointer++] = piece;
+                continue;
+            }
+            pieces[pointer++] = piece;
+            positive++;
+        }
+    }
+    let path = '';
+    for(let i = 1; i < pointer; i++)path += '/' + pieces[i];
+    if (!path || addTrailingSlash && !path.endsWith('/..')) path += '/';
+    url.path = path;
+}
+function resolve_uri_resolve(input, base) {
+    if (!input && !base) return '';
+    const url = parseUrl(input);
+    let inputType = url.type;
+    if (base && 7 !== inputType) {
+        const baseUrl = parseUrl(base);
+        const baseType = baseUrl.type;
+        switch(inputType){
+            case 1:
+                url.hash = baseUrl.hash;
+            case 2:
+                url.query = baseUrl.query;
+            case 3:
+            case 4:
+                mergePaths(url, baseUrl);
+            case 5:
+                url.user = baseUrl.user;
+                url.host = baseUrl.host;
+                url.port = baseUrl.port;
+            case 6:
+                url.scheme = baseUrl.scheme;
+        }
+        if (baseType > inputType) inputType = baseType;
+    }
+    normalizePath(url, inputType);
+    const queryHash = url.query + url.hash;
+    switch(inputType){
+        case 2:
+        case 3:
+            return queryHash;
+        case 4:
+            {
+                const path = url.path.slice(1);
+                if (!path) return queryHash || '.';
+                if (isRelative(base || input) && !isRelative(path)) return './' + path + queryHash;
+                return path + queryHash;
+            }
+        case 5:
+            return url.path + queryHash;
+        default:
+            return url.scheme + '//' + url.user + url.host + url.port + url.path + queryHash;
+    }
+}
+function stripFilename(path) {
+    if (!path) return "";
+    const index = path.lastIndexOf("/");
+    return path.slice(0, index + 1);
+}
+function trace_mapping_resolver(mapUrl, sourceRoot) {
+    const from = stripFilename(mapUrl);
+    const prefix = sourceRoot ? sourceRoot + "/" : "";
+    return (source)=>resolve_uri_resolve(prefix + (source || ""), from);
+}
+var COLUMN = 0;
+var SOURCES_INDEX = 1;
+var SOURCE_LINE = 2;
+var SOURCE_COLUMN = 3;
+var NAMES_INDEX = 4;
+function maybeSort(mappings, owned) {
+    const unsortedIndex = nextUnsortedSegmentLine(mappings, 0);
+    if (unsortedIndex === mappings.length) return mappings;
+    if (!owned) mappings = mappings.slice();
+    for(let i = unsortedIndex; i < mappings.length; i = nextUnsortedSegmentLine(mappings, i + 1))mappings[i] = sortSegments(mappings[i], owned);
+    return mappings;
+}
+function nextUnsortedSegmentLine(mappings, start) {
+    for(let i = start; i < mappings.length; i++)if (!isSorted(mappings[i])) return i;
+    return mappings.length;
+}
+function isSorted(line) {
+    for(let j = 1; j < line.length; j++)if (line[j][COLUMN] < line[j - 1][COLUMN]) return false;
+    return true;
+}
+function sortSegments(line, owned) {
+    if (!owned) line = line.slice();
+    return line.sort(sortComparator);
+}
+function sortComparator(a, b) {
+    return a[COLUMN] - b[COLUMN];
+}
+var found = false;
+function binarySearch(haystack, needle, low, high) {
+    while(low <= high){
+        const mid = low + (high - low >> 1);
+        const cmp = haystack[mid][COLUMN] - needle;
+        if (0 === cmp) {
+            found = true;
+            return mid;
+        }
+        if (cmp < 0) low = mid + 1;
+        else high = mid - 1;
+    }
+    found = false;
+    return low - 1;
+}
+function upperBound(haystack, needle, index) {
+    for(let i = index + 1; i < haystack.length && haystack[i][COLUMN] === needle; index = i++);
+    return index;
+}
+function lowerBound(haystack, needle, index) {
+    for(let i = index - 1; i >= 0 && haystack[i][COLUMN] === needle; index = i--);
+    return index;
+}
+function memoizedState() {
+    return {
+        lastKey: -1,
+        lastNeedle: -1,
+        lastIndex: -1
+    };
+}
+function memoizedBinarySearch(haystack, needle, state, key) {
+    const { lastKey, lastNeedle, lastIndex } = state;
+    let low = 0;
+    let high = haystack.length - 1;
+    if (key === lastKey) {
+        if (needle === lastNeedle) {
+            found = -1 !== lastIndex && haystack[lastIndex][COLUMN] === needle;
+            return lastIndex;
+        }
+        if (needle >= lastNeedle) low = -1 === lastIndex ? 0 : lastIndex;
+        else high = lastIndex;
+    }
+    state.lastKey = key;
+    state.lastNeedle = needle;
+    return state.lastIndex = binarySearch(haystack, needle, low, high);
+}
+function trace_mapping_parse(map) {
+    return "string" == typeof map ? JSON.parse(map) : map;
+}
+var LINE_GTR_ZERO = "`line` must be greater than 0 (lines start at line 1)";
+var COL_GTR_EQ_ZERO = "`column` must be greater than or equal to 0 (columns start at column 0)";
+var LEAST_UPPER_BOUND = -1;
+var GREATEST_LOWER_BOUND = 1;
+var TraceMap = class {
+    constructor(map, mapUrl){
+        const isString = "string" == typeof map;
+        if (!isString && map._decodedMemo) return map;
+        const parsed = trace_mapping_parse(map);
+        const { version, file, names, sourceRoot, sources, sourcesContent } = parsed;
+        this.version = version;
+        this.file = file;
+        this.names = names || [];
+        this.sourceRoot = sourceRoot;
+        this.sources = sources;
+        this.sourcesContent = sourcesContent;
+        this.ignoreList = parsed.ignoreList || parsed.x_google_ignoreList || void 0;
+        const resolve = trace_mapping_resolver(mapUrl, sourceRoot);
+        this.resolvedSources = sources.map(resolve);
+        const { mappings } = parsed;
+        if ("string" == typeof mappings) {
+            this._encoded = mappings;
+            this._decoded = void 0;
+        } else if (Array.isArray(mappings)) {
+            this._encoded = void 0;
+            this._decoded = maybeSort(mappings, isString);
+        } else if (parsed.sections) throw new Error("TraceMap passed sectioned source map, please use FlattenMap export instead");
+        else throw new Error(`invalid source map: ${JSON.stringify(parsed)}`);
+        this._decodedMemo = memoizedState();
+        this._bySources = void 0;
+        this._bySourceMemos = void 0;
+    }
+};
+function cast(map) {
+    return map;
+}
+function decodedMappings(map) {
+    var _a;
+    return (_a = cast(map))._decoded || (_a._decoded = decode(cast(map)._encoded));
+}
+function originalPositionFor(map, needle) {
+    let { line, column, bias } = needle;
+    line--;
+    if (line < 0) throw new Error(LINE_GTR_ZERO);
+    if (column < 0) throw new Error(COL_GTR_EQ_ZERO);
+    const decoded = decodedMappings(map);
+    if (line >= decoded.length) return OMapping(null, null, null, null);
+    const segments = decoded[line];
+    const index = traceSegmentInternal(segments, cast(map)._decodedMemo, line, column, bias || GREATEST_LOWER_BOUND);
+    if (-1 === index) return OMapping(null, null, null, null);
+    const segment = segments[index];
+    if (1 === segment.length) return OMapping(null, null, null, null);
+    const { names, resolvedSources } = map;
+    return OMapping(resolvedSources[segment[SOURCES_INDEX]], segment[SOURCE_LINE] + 1, segment[SOURCE_COLUMN], 5 === segment.length ? names[segment[NAMES_INDEX]] : null);
+}
+function OMapping(source, line, column, name) {
+    return {
+        source,
+        line,
+        column,
+        name
+    };
+}
+function traceSegmentInternal(segments, memo, line, column, bias) {
+    let index = memoizedBinarySearch(segments, column, memo, line);
+    if (found) index = (bias === LEAST_UPPER_BOUND ? upperBound : lowerBound)(segments, column, index);
+    else if (bias === LEAST_UPPER_BOUND) index++;
+    if (-1 === index || index === segments.length) return -1;
+    return index;
+}
+const external_node_path_ = __webpack_require__("node:path");
+const isRelativePath = (p)=>/^\.\.?\//.test(p);
+const hintNotDefinedError = (message)=>{
+    const [, varName] = message.match(/(\w+) is not defined/) || [];
+    if (varName) {
+        if (globalApis.includes(varName)) return message.replace(`${varName} is not defined`, `${varName} is not defined. Did you forget to enable "globals" configuration?`);
+        if ([
+            'jest',
+            'vitest'
+        ].includes(varName)) return message.replace(`${varName} is not defined`, `${varName} is not defined. Did you mean rstest?`);
+        if ('React' === varName) return message.replace(`${varName} is not defined`, `${varName} is not defined. Did you forget to install "${picocolors_default().yellow('@rsbuild/plugin-react')}" plugin?`);
+    }
+    return message;
+};
+async function error_printError(error, getSourcemap, rootPath) {
+    const errorName = error.name || 'Unknown Error';
+    if (error.message.includes('Vitest failed to access its internal state')) {
+        const tips = [
+            'Error: not support import `vitest` in Rstest test environment.\n',
+            'Solution:',
+            `  - Update your code to use imports from "${picocolors_default().yellow('@rstest/core')}" instead of "${picocolors_default().yellow('vitest')}".`,
+            '  - Enable `globals` configuration and use global API.'
+        ];
+        logger_logger.stderr(`${picocolors_default().red(tips.join('\n'))}\n`);
+        return;
+    }
+    if (error.message.includes('is not defined')) error.message = hintNotDefinedError(error.message);
+    logger_logger.stderr(`${picocolors_default().red(picocolors_default().bold(errorName))}${picocolors_default().red(`: ${error.message}`)}\n`);
+    if (error.diff) {
+        logger_logger.stderr(error.diff);
+        logger_logger.stderr('');
+    }
+    if (error.stack) {
+        const stackFrames = await error_parseErrorStacktrace({
+            stack: error.stack,
+            fullStack: error.fullStack,
+            getSourcemap
+        });
+        if (!stackFrames.length && !(error.fullStack || isDebug()) && !error.stack.endsWith(error.message)) logger_logger.stderr(picocolors_default().gray("No error stack found, set 'DEBUG=rstest' to show fullStack."));
+        if (stackFrames[0]) await printCodeFrame(stackFrames[0]);
+        printStack(stackFrames, rootPath);
+    }
+}
+async function printCodeFrame(frame) {
+    const filePath = frame.file?.startsWith('file') ? new URL(frame.file) : frame.file;
+    if (!filePath) return;
+    const source = external_node_fs_["default"].existsSync(filePath) ? external_node_fs_["default"].readFileSync(filePath, 'utf-8') : void 0;
+    if (!source) return;
+    const { codeFrameColumns } = await import("./0~3919.js").then(__webpack_require__.bind(__webpack_require__, "../../node_modules/.pnpm/@babel+code-frame@7.27.1/node_modules/@babel/code-frame/lib/index.js"));
+    const result = codeFrameColumns(source, {
+        start: {
+            line: frame.lineNumber,
+            column: frame.column
+        }
+    }, {
+        highlightCode: true,
+        linesBelow: 2
+    });
+    logger_logger.stderr(result);
+    logger_logger.stderr('');
+}
+function formatStack(frame, rootPath) {
+    return '<unknown>' !== frame.methodName ? `at ${frame.methodName} (${formatTestPath(rootPath, frame.file)}:${frame.lineNumber}:${frame.column})` : `at ${formatTestPath(rootPath, frame.file)}:${frame.lineNumber}:${frame.column}`;
+}
+function printStack(stackFrames, rootPath) {
+    for (const frame of stackFrames)logger_logger.stderr(picocolors_default().gray(`        ${formatStack(frame, rootPath)}`));
+    stackFrames.length && logger_logger.stderr('');
+}
+const stackIgnores = [
+    /\/@rstest\/core/,
+    /rstest\/packages\/core\/dist/,
+    /node_modules\/tinypool/,
+    /node_modules\/chai/,
+    /node_modules\/@vitest\/expect/,
+    /node_modules\/@vitest\/snapshot/,
+    /node:\w+/,
+    /webpack\/runtime/,
+    /rstest runtime/,
+    /webpack\\runtime/,
+    '<anonymous>'
+];
+async function error_parseErrorStacktrace({ stack, getSourcemap, fullStack = isDebug() }) {
+    const stackFrames = await Promise.all(stack_trace_parser_esm_parse(stack).filter((frame)=>fullStack ? true : frame.file && !stackIgnores.some((entry)=>frame.file?.match(entry))).map(async (frame)=>{
+        const sourcemap = await getSourcemap?.(frame.file);
+        if (sourcemap) {
+            const traceMap = new TraceMap(sourcemap);
+            const { line, column, source, name } = originalPositionFor(traceMap, {
+                line: frame.lineNumber,
+                column: frame.column
+            });
+            if (!source) return null;
+            return {
+                ...frame,
+                file: isRelativePath(source) ? (0, external_node_path_.resolve)(frame.file, '../', source) : new URL(source).pathname,
+                lineNumber: line,
+                name,
+                column
+            };
+        }
+        return frame;
+    })).then((frames)=>frames.filter((frame)=>null !== frame));
+    return stackFrames;
+}
+class JUnitReporter {
+    rootPath;
+    outputPath;
+    constructor({ rootPath, options: { outputPath } = {} }){
+        this.rootPath = rootPath;
+        this.outputPath = outputPath;
+    }
+    sanitizeXml(text) {
+        let result = '';
+        for (const ch of stripAnsi(text)){
+            const cp = ch.codePointAt(0);
+            const valid = 0x09 === cp || 0x0a === cp || 0x0d === cp || cp >= 0x20 && cp <= 0xd7ff || cp >= 0xe000 && cp <= 0xfffd || cp >= 0x10000 && cp <= 0x10ffff;
+            if (valid) result += ch;
+        }
+        return result;
+    }
+    escapeXml(text) {
+        const sanitized = this.sanitizeXml(text);
+        return sanitized.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+    }
+    async createJUnitTestCase(test, getSourcemap) {
+        const testCase = {
+            name: getTaskNameWithPrefix(test),
+            classname: relative(this.rootPath, test.testPath),
+            time: (test.duration || 0) / 1000,
+            status: test.status
+        };
+        if (test.errors && test.errors.length > 0) testCase.errors = await Promise.all(test.errors.map(async (error)=>{
+            let details = `${error.message}${error.diff ? `\n${error.diff}` : ''}`;
+            const stackFrames = error.stack ? await error_parseErrorStacktrace({
+                stack: error.stack,
+                fullStack: error.fullStack,
+                getSourcemap
+            }) : [];
+            if (stackFrames[0]) details += `\n${formatStack(stackFrames[0], this.rootPath)}`;
+            return {
+                message: this.escapeXml(error.message),
+                type: error.name || 'Error',
+                details: this.escapeXml(details)
+            };
+        }));
+        return testCase;
+    }
+    async createJUnitTestSuite(fileResult, getSourcemap) {
+        const testCases = await Promise.all(fileResult.results.map(async (test)=>this.createJUnitTestCase(test, getSourcemap)));
+        const failures = testCases.filter((test)=>'fail' === test.status).length;
+        const errors = 0;
+        const skipped = testCases.filter((test)=>'skip' === test.status || 'todo' === test.status).length;
+        const totalTime = testCases.reduce((sum, test)=>sum + test.time, 0);
+        return {
+            name: relative(this.rootPath, fileResult.testPath),
+            tests: testCases.length,
+            failures,
+            errors,
+            skipped,
+            time: totalTime,
+            timestamp: new Date().toISOString(),
+            testcases: testCases
+        };
+    }
+    generateJUnitXml(report) {
+        const xmlDeclaration = '<?xml version="1.0" encoding="UTF-8"?>';
+        const testsuitesXml = `
+<testsuites name="${this.escapeXml(report.testsuites.name)}" tests="${report.testsuites.tests}" failures="${report.testsuites.failures}" errors="${report.testsuites.errors}" skipped="${report.testsuites.skipped}" time="${report.testsuites.time}" timestamp="${this.escapeXml(report.testsuites.timestamp)}">`;
+        const testsuiteXmls = report.testsuites.testsuite.map((suite)=>{
+            const testsuiteStart = `
+  <testsuite name="${this.escapeXml(suite.name)}" tests="${suite.tests}" failures="${suite.failures}" errors="${suite.errors}" skipped="${suite.skipped}" time="${suite.time}" timestamp="${this.escapeXml(suite.timestamp)}">`;
+            const testcaseXmls = suite.testcases.map((testcase)=>{
+                let testcaseXml = `
+    <testcase name="${this.escapeXml(testcase.name)}" classname="${this.escapeXml(testcase.classname)}" time="${testcase.time}">`;
+                if ('skip' === testcase.status || 'todo' === testcase.status) testcaseXml += `
+      <skipped/>`;
+                else if ('fail' === testcase.status && testcase.errors) testcase.errors.forEach((error)=>{
+                    testcaseXml += `
+      <failure message="${error.message}" type="${error.type}">${error.details || ''}</failure>`;
+                });
+                testcaseXml += `
+    </testcase>`;
+                return testcaseXml;
+            }).join('');
+            const testsuiteEnd = `
+  </testsuite>`;
+            return testsuiteStart + testcaseXmls + testsuiteEnd;
+        }).join('');
+        const testsuitesEnd = `
+</testsuites>`;
+        return xmlDeclaration + testsuitesXml + testsuiteXmls + testsuitesEnd;
+    }
+    async onTestRunEnd({ results, testResults, duration, getSourcemap }) {
+        const testSuites = await Promise.all(results.map(async (fileResult)=>this.createJUnitTestSuite(fileResult, getSourcemap)));
+        const totalTests = testResults.length;
+        const totalFailures = testResults.filter((test)=>'fail' === test.status).length;
+        const totalErrors = 0;
+        const totalSkipped = testResults.filter((test)=>'skip' === test.status || 'todo' === test.status).length;
+        const totalTime = duration.testTime / 1000;
+        const report = {
+            testsuites: {
+                name: 'rstest tests',
+                tests: totalTests,
+                failures: totalFailures,
+                errors: totalErrors,
+                skipped: totalSkipped,
+                time: totalTime,
+                timestamp: new Date().toISOString(),
+                testsuite: testSuites
+            }
+        };
+        const xmlContent = this.generateJUnitXml(report);
+        if (this.outputPath) try {
+            await writeFile(this.outputPath, xmlContent, 'utf-8');
+            logger_logger.log(`JUnit XML report written to: ${this.outputPath}`);
+        } catch (error) {
+            logger_logger.stderr(`Failed to write JUnit XML report to ${this.outputPath}:`, error);
+            logger_logger.log('JUnit XML Report:');
+            logger_logger.log(xmlContent);
+        }
+        else logger_logger.log(xmlContent);
+    }
+}
+class VerboseReporter extends DefaultReporter {
+    onTestFileResult(test) {
+        this.statusRenderer?.onTestFileResult();
+        const relativePath = relative(this.rootPath, test.testPath);
+        const { slowTestThreshold } = this.config;
+        logFileTitle(test, relativePath, true);
+        for (const result of test.results)logCase(result, {
+            slowTestThreshold,
+            hideSkippedTests: this.config.hideSkippedTests
+        });
+    }
+}
+class TestStateManager {
+    runningModules = new Map();
+    testModules = [];
+    testFiles = void 0;
+    onTestFileStart(testPath) {
+        this.runningModules.set(testPath, {
+            runningTests: [],
+            results: []
+        });
+    }
+    onTestCaseResult(result) {
+        const currentModule = this.runningModules.get(result.testPath);
+        if (currentModule) {
+            const filteredRunningTests = currentModule.runningTests.filter((t)=>t.testId !== result.testId);
+            this.runningModules.set(result.testPath, {
+                runningTests: filteredRunningTests,
+                results: [
+                    ...currentModule.results,
+                    result
+                ]
+            });
+        } else this.runningModules.set(result.testPath, {
+            runningTests: [],
+            results: [
+                result
+            ]
+        });
+    }
+    onTestCaseStart(test) {
+        const currentModule = this.runningModules.get(test.testPath);
+        if (currentModule) {
+            const filteredRunningTests = currentModule.runningTests.filter((t)=>t.testId !== test.testId);
+            this.runningModules.set(test.testPath, {
+                runningTests: [
+                    ...filteredRunningTests,
+                    test
+                ],
+                results: currentModule.results
+            });
+        } else this.runningModules.set(test.testPath, {
+            runningTests: [
+                test
+            ],
+            results: []
+        });
+    }
+    getCountOfFailedTests() {
+        const testResults = Array.from(this.runningModules.values()).flatMap(({ results })=>results).concat(this.testModules.flatMap((mod)=>mod.results));
+        return testResults.filter((t)=>'fail' === t.status).length;
+    }
+    onTestFileResult(test) {
+        this.runningModules.delete(test.testPath);
+        this.testModules.push(test);
+    }
+    reset() {
+        this.runningModules.clear();
+        this.testModules = [];
+        this.testFiles = void 0;
+    }
+}
+function formatEnvironmentName(name) {
+    return name.replace(/[^a-zA-Z0-9\-_$]/g, '_');
+}
+class Rstest {
+    cwd;
+    command;
+    fileFilters;
+    configFilePath;
+    reporters;
+    snapshotManager;
+    version;
+    rootPath;
+    originalConfig;
+    normalizedConfig;
+    reporterResults = {
+        results: [],
+        testResults: []
+    };
+    stateManager = new TestStateManager();
+    testState = {
+        getRunningModules: ()=>this.stateManager.runningModules,
+        getTestModules: ()=>this.stateManager.testModules,
+        getTestFiles: ()=>{
+            if ('watch' === this.command) return;
+            return this.stateManager.testFiles;
+        }
+    };
+    projects = [];
+    constructor({ cwd = process.cwd(), command, fileFilters, configFilePath, projects }, userConfig){
+        this.cwd = cwd;
+        this.command = command;
+        this.fileFilters = fileFilters;
+        this.configFilePath = configFilePath;
+        const rootPath = userConfig.root ? getAbsolutePath(cwd, userConfig.root) : cwd;
+        const rstestConfig = withDefaultConfig({
+            ...userConfig,
+            root: rootPath
+        });
+        const reporters = 'list' !== command ? createReporters(rstestConfig.reporters, {
+            rootPath,
+            config: rstestConfig,
+            testState: this.testState
+        }) : [];
+        const snapshotManager = new SnapshotManager({
+            updateSnapshot: rstestConfig.update ? 'all' : T ? 'none' : 'new'
+        });
+        this.reporters = reporters;
+        this.snapshotManager = snapshotManager;
+        this.version = "0.7.7";
+        this.rootPath = rootPath;
+        this.originalConfig = userConfig;
+        this.normalizedConfig = rstestConfig;
+        this.projects = projects.length ? projects.map((project)=>{
+            project.config.root = getAbsolutePath(rootPath, project.config.root);
+            const config = withDefaultConfig(project.config);
+            config.isolate = rstestConfig.isolate;
+            config.coverage = rstestConfig.coverage;
+            config.bail = rstestConfig.bail;
+            config.source ??= {};
+            if (config.source.tsconfigPath) config.source.tsconfigPath = getAbsolutePath(config.root, config.source.tsconfigPath);
+            else {
+                const tsconfigPath = join(config.root, TS_CONFIG_FILE);
+                if ((0, external_node_fs_.existsSync)(tsconfigPath)) config.source.tsconfigPath = tsconfigPath;
+            }
+            return {
+                configFilePath: project.configFilePath,
+                rootPath: config.root,
+                name: config.name,
+                _globalSetups: false,
+                outputModule: config.output?.module ?? 'true' === process.env.RSTEST_OUTPUT_MODULE,
+                environmentName: formatEnvironmentName(config.name),
+                normalizedConfig: config
+            };
+        }) : [
+            {
+                configFilePath,
+                rootPath,
+                _globalSetups: false,
+                name: rstestConfig.name,
+                outputModule: rstestConfig.output?.module ?? 'true' === process.env.RSTEST_OUTPUT_MODULE,
+                environmentName: formatEnvironmentName(rstestConfig.name),
+                normalizedConfig: rstestConfig
+            }
+        ];
+    }
+    updateReporterResultState(results, testResults, deletedEntries = []) {
+        results.forEach((item)=>{
+            const existingIndex = this.reporterResults.results.findIndex((r)=>r.testPath === item.testPath);
+            if (-1 !== existingIndex) this.reporterResults.results[existingIndex] = item;
+            else this.reporterResults.results.push(item);
+        });
+        const testPathsToUpdate = new Set(testResults.map((r)=>r.testPath));
+        this.reporterResults.testResults = this.reporterResults.testResults.filter((r)=>!testPathsToUpdate.has(r.testPath));
+        this.reporterResults.testResults.push(...testResults);
+        if (deletedEntries.length > 0) {
+            const deletedPathsSet = new Set(deletedEntries);
+            this.reporterResults.results = this.reporterResults.results.filter((r)=>!deletedPathsSet.has(r.testPath));
+            this.reporterResults.testResults = this.reporterResults.testResults.filter((r)=>!deletedPathsSet.has(r.testPath));
+        }
+    }
+}
+const reportersMap = {
+    default: DefaultReporter,
+    verbose: VerboseReporter,
+    'github-actions': GithubActionsReporter,
+    junit: JUnitReporter
+};
+function createReporters(reporters, initOptions = {}) {
+    const result = castArray(reporters).map((reporter)=>{
+        if ('string' == typeof reporter || Array.isArray(reporter)) {
+            const [name, options = {}] = 'string' == typeof reporter ? [
+                reporter,
+                {}
+            ] : reporter;
+            if (name in reportersMap) {
+                const Reporter = reportersMap[name];
+                return new Reporter({
+                    ...initOptions,
+                    options
+                });
+            }
+            throw new Error(`Reporter ${reporter} not found. Please install it or use a built-in reporter.`);
+        }
+        return reporter;
+    });
+    return result;
+}
+function core_createRstest({ config, projects, configFilePath }, command, fileFilters) {
+    const context = new Rstest({
+        cwd: process.cwd(),
+        command,
+        fileFilters,
+        configFilePath,
+        projects
+    }, config);
+    const runTests = async ()=>{
+        const { runTests } = await import("./0~2173.js").then((mod)=>({
+                runTests: mod.runTests
+            }));
+        await runTests(context);
+    };
+    const listTests = async (options)=>{
+        const { listTests } = await import("./0~9634.js").then((mod)=>({
+                listTests: mod.listTests
+            }));
+        return listTests(context, options);
+    };
+    return {
+        context,
+        runTests,
+        listTests
+    };
+}
+const check = (name)=>{
+    if (!globalThis.RSTEST_API?.[name]) throw new Error(`Rstest API '${name}' is not registered yet, please make sure you are running in a rstest environment.`);
+};
+const wrapRstestAPI = (name)=>{
+    const fn = (...args)=>{
+        check(name);
+        return globalThis.RSTEST_API[name].call(globalThis.RSTEST_API[name], ...args);
+    };
+    return new Proxy(fn, {
+        get (_target, key, receiver) {
+            check(name);
+            return Reflect.get(globalThis.RSTEST_API?.[name] || {}, key, receiver);
+        }
+    });
+};
+const wrapRstestUtilitiesAPI = (name)=>new Proxy({}, {
+        get (_target, key, receiver) {
+            check(name);
+            return Reflect.get(globalThis.RSTEST_API?.[name] || {}, key, receiver);
+        }
+    });
+const expect = wrapRstestAPI('expect');
+const assert = wrapRstestAPI('assert');
+const it = wrapRstestAPI('it');
+const public_test = wrapRstestAPI('test');
+const describe = wrapRstestAPI('describe');
+const beforeAll = wrapRstestAPI('beforeAll');
+const afterAll = wrapRstestAPI('afterAll');
+const beforeEach = wrapRstestAPI('beforeEach');
+const afterEach = wrapRstestAPI('afterEach');
+const public_rstest = wrapRstestUtilitiesAPI('rstest');
+const rs = wrapRstestUtilitiesAPI('rs');
+const onTestFinished = wrapRstestAPI('onTestFinished');
+const onTestFailed = wrapRstestAPI('onTestFailed');
+function defineConfig(config) {
+    return config;
+}
+function defineProject(config) {
+    return config;
+}
+export { EventEmitter, afterAll, afterEach, assert, beforeAll, beforeEach, config_loadConfig as loadConfig, core_createRstest as createRstest, core_logger, createRsbuild, defineConfig, defineProject, describe, error_printError, expect, init_initCli as initCli, it, mergeProjectConfig, mergeRstestConfig, onTestFailed, onTestFinished, public_rstest as rstest, public_test as test, rs, rspack, runCLI, runRest };

@@ -1,0 +1,3265 @@
+import type { assert as assert_2 } from 'chai';
+import type { config } from 'chai';
+import { LoadConfigOptions } from '@rsbuild/core';
+import type { RsbuildConfig } from '@rsbuild/core';
+import type { RsbuildPlugin } from '@rsbuild/core';
+import type { Writable } from 'node:stream';
+
+/**
+ * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+declare function addSerializer(plugin: Plugin_2): void;
+
+export declare const afterAll: Rstest['afterAll'];
+
+declare type AfterAllListener = (ctx: SuiteContext) => MaybePromise<void>;
+
+export declare const afterEach: Rstest['afterEach'];
+
+declare type AfterEachListener = (ctx: TestContext) => MaybePromise<void>;
+
+export declare const assert: Rstest['assert'];
+
+export declare interface Assertion<T = any> extends Assertion_2<T> {
+    matchSnapshot: SnapshotMatcher<T>;
+    toMatchSnapshot: SnapshotMatcher<T>;
+    toMatchInlineSnapshot: InlineSnapshotMatcher<T>;
+    /**
+     * Checks that an error thrown by a function matches a previously recorded snapshot.
+     *
+     * @param message - Optional custom error message.
+     *
+     * @example
+     * expect(functionWithError).toThrowErrorMatchingSnapshot();
+     */
+    toThrowErrorMatchingSnapshot: (message?: string) => void;
+    /**
+     * Checks that an error thrown by a function matches an inline snapshot within the test file.
+     * Useful for keeping snapshots close to the test code.
+     *
+     * @param snapshot - Optional inline snapshot string to match.
+     * @param message - Optional custom error message.
+     *
+     * @example
+     * const throwError = () => { throw new Error('Error occurred') };
+     * expect(throwError).toThrowErrorMatchingInlineSnapshot(`"Error occurred"`);
+     */
+    toThrowErrorMatchingInlineSnapshot: (snapshot?: string, message?: string) => void;
+    /**
+     * Compares the received value to a snapshot saved in a specified file.
+     * Useful for cases where snapshot content is large or needs to be shared across tests.
+     *
+     * @param filepath - Path to the snapshot file.
+     * @param message - Optional custom error message.
+     *
+     * @example
+     * await expect(largeData).toMatchFileSnapshot('path/to/snapshot.json');
+     */
+    toMatchFileSnapshot: (filepath: string, message?: string) => Promise<void>;
+    /**
+     * Verifies that a promise resolves.
+     *
+     * @example
+     * await expect(someAsyncFunc).resolves.toBe(42);
+     */
+    resolves: PromisifyAssertion_2<T>;
+    /**
+     * Verifies that a promise rejects.
+     *
+     * @example
+     * await expect(someAsyncFunc).rejects.toThrow('error');
+     */
+    rejects: PromisifyAssertion_2<T>;
+}
+
+declare interface Assertion_2<T = any> extends VitestAssertion<Chai.Assertion, T>, JestAssertion<T>, Matchers<T> {
+    	/**
+     	* Ensures a value is of a specific type.
+     	*
+     	* @example
+     	* expect(value).toBeTypeOf('string');
+     	* expect(number).toBeTypeOf('number');
+     	*/
+    	toBeTypeOf: (expected: "bigint" | "boolean" | "function" | "number" | "object" | "string" | "symbol" | "undefined") => void;
+    	/**
+     	* Asserts that a mock function was called exactly once.
+     	*
+     	* @example
+     	* expect(mockFunc).toHaveBeenCalledOnce();
+     	*/
+    	toHaveBeenCalledOnce: () => void;
+    	/**
+     	* Ensure that a mock function is called with specific arguments and called
+     	* exactly once.
+     	*
+     	* @example
+     	* expect(mockFunc).toHaveBeenCalledExactlyOnceWith('arg1', 42);
+     	*/
+    	toHaveBeenCalledExactlyOnceWith: <E extends any[]>(...args: E) => void;
+    	/**
+     	* This assertion checks if a `Mock` was called before another `Mock`.
+     	* @param mock - A mock function created by `vi.spyOn` or `vi.fn`
+     	* @param failIfNoFirstInvocation - Fail if the first mock was never called
+     	* @example
+     	* const mock1 = vi.fn()
+     	* const mock2 = vi.fn()
+     	*
+     	* mock1()
+     	* mock2()
+     	* mock1()
+     	*
+     	* expect(mock1).toHaveBeenCalledBefore(mock2)
+     	*/
+    	toHaveBeenCalledBefore: (mock: MockInstance, failIfNoFirstInvocation?: boolean) => void;
+    	/**
+     	* This assertion checks if a `Mock` was called after another `Mock`.
+     	* @param mock - A mock function created by `vi.spyOn` or `vi.fn`
+     	* @param failIfNoFirstInvocation - Fail if the first mock was never called
+     	* @example
+     	* const mock1 = vi.fn()
+     	* const mock2 = vi.fn()
+     	*
+     	* mock2()
+     	* mock1()
+     	* mock2()
+     	*
+     	* expect(mock1).toHaveBeenCalledAfter(mock2)
+     	*/
+    	toHaveBeenCalledAfter: (mock: MockInstance, failIfNoFirstInvocation?: boolean) => void;
+    	/**
+     	* Checks that a promise resolves successfully at least once.
+     	*
+     	* @example
+     	* await expect(promise).toHaveResolved();
+     	*/
+    	toHaveResolved: () => void;
+    	/**
+     	* Checks that a promise resolves to a specific value.
+     	*
+     	* @example
+     	* await expect(promise).toHaveResolvedWith('success');
+     	*/
+    	toHaveResolvedWith: <E>(value: E) => void;
+    	/**
+     	* Ensures a promise resolves a specific number of times.
+     	*
+     	* @example
+     	* expect(mockAsyncFunc).toHaveResolvedTimes(3);
+     	*/
+    	toHaveResolvedTimes: (times: number) => void;
+    	/**
+     	* Asserts that the last resolved value of a promise matches an expected value.
+     	*
+     	* @example
+     	* await expect(mockAsyncFunc).toHaveLastResolvedWith('finalResult');
+     	*/
+    	toHaveLastResolvedWith: <E>(value: E) => void;
+    	/**
+     	* Ensures a specific value was returned by a promise on the nth resolution.
+     	*
+     	* @example
+     	* await expect(mockAsyncFunc).toHaveNthResolvedWith(2, 'secondResult');
+     	*/
+    	toHaveNthResolvedWith: <E>(nthCall: number, value: E) => void;
+    	/**
+     	* Verifies that a promise resolves.
+     	*
+     	* @example
+     	* await expect(someAsyncFunc).resolves.toBe(42);
+     	*/
+    	resolves: PromisifyAssertion<T>;
+    	/**
+     	* Verifies that a promise rejects.
+     	*
+     	* @example
+     	* await expect(someAsyncFunc).rejects.toThrow('error');
+     	*/
+    	rejects: PromisifyAssertion<T>;
+}
+
+declare abstract class AsymmetricMatcher<
+	T,
+	State extends MatcherState = MatcherState
+> implements AsymmetricMatcherInterface {
+    	protected sample: T;
+    	protected inverse: boolean;
+    	// should have "jest" to be compatible with its ecosystem
+    	$$typeof: symbol;
+    	constructor(sample: T, inverse?: boolean);
+    	protected getMatcherContext(expect?: Chai.ExpectStatic): State;
+    	abstract asymmetricMatch(other: unknown): boolean;
+    	abstract toString(): string;
+    	getExpectedType?(): string;
+    	toAsymmetricMatcher?(): string;
+}
+
+declare interface AsymmetricMatcherInterface {
+    	asymmetricMatch: (other: unknown) => boolean;
+    	toString: () => string;
+    	getExpectedType?: () => string;
+    	toAsymmetricMatcher?: () => string;
+}
+
+declare interface AsymmetricMatchersContaining extends CustomMatcher {
+    	/**
+     	* Matches if the received string contains the expected substring.
+     	*
+     	* @example
+     	* expect('I have an apple').toEqual(expect.stringContaining('apple'));
+     	* expect({ a: 'test string' }).toEqual({ a: expect.stringContaining('test') });
+     	*/
+    	stringContaining: (expected: string) => any;
+    	/**
+     	* Matches if the received object contains all properties of the expected object.
+     	*
+     	* @example
+     	* expect({ a: '1', b: 2 }).toEqual(expect.objectContaining({ a: '1' }))
+     	*/
+    	objectContaining: <T = any>(expected: DeeplyAllowMatchers<T>) => any;
+    	/**
+     	* Matches if the received array contains all elements in the expected array.
+     	*
+     	* @example
+     	* expect(['a', 'b', 'c']).toEqual(expect.arrayContaining(['b', 'a']));
+     	*/
+    	arrayContaining: <T = unknown>(expected: Array<DeeplyAllowMatchers<T>>) => any;
+    	/**
+     	* Matches if the received string or regex matches the expected pattern.
+     	*
+     	* @example
+     	* expect('hello world').toEqual(expect.stringMatching(/^hello/));
+     	* expect('hello world').toEqual(expect.stringMatching('hello'));
+     	*/
+    	stringMatching: (expected: string | RegExp) => any;
+    	/**
+     	* Matches if the received number is within a certain precision of the expected number.
+     	*
+     	* @param precision - Optional decimal precision for comparison. Default is 2.
+     	*
+     	* @example
+     	* expect(10.45).toEqual(expect.closeTo(10.5, 1));
+     	* expect(5.11).toEqual(expect.closeTo(5.12)); // with default precision
+     	*/
+    	closeTo: (expected: number, precision?: number) => any;
+}
+
+declare type AsyncExpectationResult = Promise<SyncExpectationResult>;
+
+export declare const beforeAll: Rstest['beforeAll'];
+
+declare type BeforeAllListener = (ctx: SuiteContext) => MaybePromise<void | AfterAllListener>;
+
+export declare const beforeEach: Rstest['beforeEach'];
+
+declare type BeforeEachListener = (ctx: TestContext) => MaybePromise<void | AfterEachListener>;
+
+declare interface BranchMapping {
+    loc: Range_2;
+    type: string;
+    locations: Range_2[];
+    line: number;
+}
+
+declare type BuiltInReporterNames = keyof typeof reportersMap;
+
+declare type BuiltinReporterOptions = {
+    default: DefaultReporterOptions;
+};
+
+declare type ChaiConfig = Partial<Omit<typeof config, 'useProxy' | 'proxyExcludedKeys' | 'deepEqual'>>;
+
+declare interface CloverOptions extends FileOptions, ProjectOptions {}
+
+declare interface CoberturaOptions extends FileOptions, ProjectOptions {}
+
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+declare interface Colors {
+    	comment: {
+        		close: string
+        		open: string
+        	};
+    	content: {
+        		close: string
+        		open: string
+        	};
+    	prop: {
+        		close: string
+        		open: string
+        	};
+    	tag: {
+        		close: string
+        		open: string
+        	};
+    	value: {
+        		close: string
+        		open: string
+        	};
+}
+
+declare type CommonOptions = {
+    root?: string;
+    config?: string;
+    configLoader?: LoadConfigOptions['loader'];
+    globals?: boolean;
+    isolate?: boolean;
+    include?: string[];
+    exclude?: string[];
+    reporter?: string[];
+    project?: string[];
+    coverage?: boolean;
+    passWithNoTests?: boolean;
+    printConsoleTrace?: boolean;
+    logHeapUsage?: boolean;
+    disableConsoleIntercept?: boolean;
+    update?: boolean;
+    testNamePattern?: RegExp | string;
+    testTimeout?: number;
+    hookTimeout?: number;
+    testEnvironment?: string;
+    clearMocks?: boolean;
+    resetMocks?: boolean;
+    restoreMocks?: boolean;
+    unstubGlobals?: boolean;
+    unstubEnvs?: boolean;
+    retry?: number;
+    maxConcurrency?: number;
+    slowTestThreshold?: number;
+    hideSkippedTests?: boolean;
+    bail?: number | boolean;
+};
+
+declare type CompareKeys = ((a: string, b: string) => number) | null | undefined;
+
+declare interface Config {
+    	callToJSON: boolean;
+    	compareKeys: CompareKeys;
+    	colors: Colors;
+    	escapeRegex: boolean;
+    	escapeString: boolean;
+    	indent: string;
+    	maxDepth: number;
+    	maxWidth: number;
+    	min: boolean;
+    	plugins: Plugins;
+    	printBasicPrototype: boolean;
+    	printFunctionName: boolean;
+    	spacingInner: string;
+    	spacingOuter: string;
+}
+
+declare interface Constructable {
+    	new (...args: any[]): any;
+}
+
+/**
+ * Base class for writing content
+ */
+declare class ContentWriter {
+    /**
+     * returns the colorized version of a string. Typically,
+     * content writers that write to files will return the
+     * same string and ones writing to a tty will wrap it in
+     * appropriate escape sequences.
+     */
+    colorize(str: string, clazz?: string): string;
+    /**
+     * writes a string appended with a newline to the destination
+     */
+    println(str: string): void;
+    /**
+     * closes this content writer. Should be called after all writes are complete.
+     */
+    close(): void;
+}
+
+declare interface Context {
+    data: any;
+    dir: string;
+    sourceFinder(filepath: string): string;
+    watermarks: Watermarks;
+    writer: FileWriter;
+    /**
+     * returns the coverage class given a coverage
+     * types and a percentage value.
+     */
+    classForPercent(type: keyof Watermarks, value: number): string;
+    /**
+     * returns the source code for the specified file path or throws if
+     * the source could not be found.
+     */
+    getSource(filepath: string): string;
+    getTree(summarizer?: Summarizers): Tree;
+    /**
+     * returns a full visitor given a partial one.
+     */
+    getVisitor<N extends Node_2 = Node_2>(visitor: Partial<Visitor<N>>): Visitor<N>;
+    /**
+     * returns a FileWriter implementation for reporting use. Also available
+     * as the `writer` property on the context.
+     */
+    getWriter(): FileWriter;
+    /**
+     * returns an XML writer for the supplied content writer
+     */
+    getXmlWriter(contentWriter: ContentWriter): XmlWriter;
+}
+
+declare class CounterMap<K> extends DefaultMap<K, number> {
+    	constructor();
+    	// compat for jest-image-snapshot https://github.com/vitest-dev/vitest/issues/7322
+    	// `valueOf` and `Snapshot.added` setter allows
+    	//   snapshotState.added = snapshotState.added + 1
+    	// to function as
+    	//   snapshotState.added.total_ = snapshotState.added.total() + 1
+    	_total: number | undefined;
+    	valueOf(): number;
+    	increment(key: K): void;
+    	total(): number;
+}
+
+declare interface Coverage {
+    covered: number;
+    total: number;
+    coverage: number;
+}
+
+declare class CoverageMap {
+    constructor(data: CoverageMapData | CoverageMap);
+    addFileCoverage(pathOrObject: string | FileCoverage | FileCoverageData): void;
+    files(): string[];
+    fileCoverageFor(filename: string): FileCoverage;
+    filter(callback: (key: string) => boolean): void;
+    getCoverageSummary(): CoverageSummary;
+    merge(data: CoverageMapData | CoverageMap): void;
+    toJSON(): CoverageMapData;
+    data: CoverageMapData;
+}
+
+declare interface CoverageMapData {
+    [key: string]: FileCoverage | FileCoverageData;
+}
+
+export declare type CoverageOptions = {
+    /**
+     * Enable coverage collection.
+     * @default false
+     */
+    enabled?: boolean;
+    /**
+     * A list of glob patterns that should be included for coverage collection.
+     * Only collect coverage for tested files by default.
+     *
+     * @default undefined
+     */
+    include?: string[];
+    /**
+     * A list of glob patterns that should be excluded from coverage collection.
+     *
+     * This option accepts an array of wax(https://crates.io/crates/wax)-compatible glob patterns
+     *
+     * @default ['**\/node_modules/**',
+     *           '**\/dist/**',
+     *           '**\/test/**',
+     *           '**\/__tests__/**',
+     *           '**\/*.{test,spec}.?(c|m)[jt]s?(x)',
+     *           '**\/__mocks__/**'
+     * ]
+     */
+    exclude?: string[];
+    /**
+     * The provider to use for coverage collection.
+     * @default 'istanbul'
+     */
+    provider?: 'istanbul';
+    /**
+     * The reporters to use for coverage collection.
+     * Supports built-in istanbul reporters and custom reporters (e.g., '@canyonjs/report-html').
+     * @default ['text', 'html', 'clover', 'json']
+     * @example
+     * // Built-in reporters
+     * reporters: ['text', 'html', ['json', { file: 'coverage.json' }]]
+     *
+     * // Custom reporters
+     * reporters: ['@canyonjs/report-html', ['custom-reporter', { outputDir: './reports' }]]
+     *
+     * // Mixed usage
+     * reporters: ['text', '@canyonjs/report-html', ['html', { subdir: 'html-report' }]]
+     */
+    reporters?: SupportedReporter[];
+    /**
+     * The directory to store coverage reports.
+     * @default './coverage'
+     */
+    reportsDirectory?: string;
+    /**
+     * Whether to clean the coverage directory before running tests.
+     * @default true
+     */
+    clean?: boolean;
+    /**
+     * Coverage thresholds
+     *
+     * @default undefined
+     */
+    thresholds?: CoverageThresholds;
+    /**
+     * Whether to report coverage when tests fail.
+     * @default false
+     */
+    reportOnFailure?: boolean;
+};
+
+export declare class CoverageProvider {
+    constructor(options: CoverageOptions);
+    /**
+     * Initialize coverage collection
+     */
+    init(): void;
+    /**
+     * Collect coverage data from global coverage object
+     */
+    collect(): CoverageMap | null;
+    /**
+     * Create a new coverage map
+     */
+    createCoverageMap(): CoverageMap;
+    /**
+     * Generate coverage for untested files
+     */
+    generateCoverageForUntestedFiles(params: {
+        environmentName: string;
+        files: string[];
+    }): Promise<FileCoverageData[]>;
+    /**
+     * Generate coverage reports
+     */
+    generateReports(coverageMap: CoverageMap, options: CoverageOptions): Promise<void>;
+    /**
+     * Clean up coverage data
+     */
+    cleanup(): void;
+}
+
+declare class CoverageSummary {
+    constructor(data: CoverageSummary | CoverageSummaryData);
+    merge(obj: CoverageSummary): CoverageSummary;
+    toJSON(): CoverageSummaryData;
+    isEmpty(): boolean;
+    data: CoverageSummaryData;
+    lines: Totals;
+    statements: Totals;
+    branches: Totals;
+    functions: Totals;
+}
+
+declare interface CoverageSummaryData {
+    lines: Totals;
+    statements: Totals;
+    branches: Totals;
+    functions: Totals;
+}
+
+declare type CoverageThreshold = {
+    /** Threshold for statements */
+    statements?: number;
+    /** Threshold for functions */
+    functions?: number;
+    /** Threshold for branches */
+    branches?: number;
+    /** Threshold for lines */
+    lines?: number;
+};
+
+declare type CoverageThresholds = CoverageThreshold | (CoverageThreshold & ThresholdGlobRecord);
+
+export declare function createRstest({ config, projects, configFilePath, }: {
+    config: RstestConfig;
+    configFilePath?: string;
+    projects: Project[];
+}, command: RstestCommand, fileFilters: string[]): RstestInstance;
+
+declare interface CustomMatcher {
+    	/**
+     	* Checks that a value satisfies a custom matcher function.
+     	*
+     	* @param matcher - A function returning a boolean based on the custom condition
+     	* @param message - Optional custom error message on failure
+     	*
+     	* @example
+     	* expect(age).toSatisfy(val => val >= 18, 'Age must be at least 18');
+     	* expect(age).toEqual(expect.toSatisfy(val => val >= 18, 'Age must be at least 18'));
+     	*/
+    	toSatisfy: (matcher: (value: any) => boolean, message?: string) => any;
+    	/**
+     	* Matches if the received value is one of the values in the expected array.
+     	*
+     	* @example
+     	* expect(1).toBeOneOf([1, 2, 3])
+     	* expect('foo').toBeOneOf([expect.any(String)])
+     	* expect({ a: 1 }).toEqual({ a: expect.toBeOneOf(['1', '2', '3']) })
+     	*/
+    	toBeOneOf: <T>(sample: Array<T>) => any;
+}
+
+/** Custom reporter configuration for non-istanbul reporters */
+declare type CustomReporter = string | [string, Record<string, unknown>];
+
+declare interface DecodedSourceMap extends SourceMapV3 {
+    mappings: SourceMapSegment[][];
+}
+
+declare type DecodedSourceMapXInput = DecodedSourceMap & XInput;
+
+declare type DeeplyAllowMatchers<T> = T extends Array<infer Element> ? WithAsymmetricMatcher<T> | DeeplyAllowMatchers<Element>[] : T extends object ? WithAsymmetricMatcher<T> | { [K in keyof T] : DeeplyAllowMatchers<T[K]> } : WithAsymmetricMatcher<T>;
+
+/**
+ * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+declare class DefaultMap<
+	K,
+	V
+> extends Map<K, V> {
+    	private defaultFn;
+    	constructor(defaultFn: (key: K) => V, entries?: Iterable<readonly [K, V]>);
+    	get(key: K): V;
+}
+
+declare class DefaultReporter implements Reporter {
+    protected rootPath: string;
+    protected config: NormalizedConfig;
+    private options;
+    protected statusRenderer: StatusRenderer | undefined;
+    private testState;
+    constructor({ rootPath, options, config, testState, }: {
+        rootPath: string;
+        config: NormalizedConfig;
+        options: DefaultReporterOptions;
+        testState: RstestTestState;
+    });
+    onTestFileStart(): void;
+    onTestFileResult(test: TestFileResult): void;
+    onTestCaseResult(): void;
+    onUserConsoleLog(log: UserConsoleLog): void;
+    onExit(): Promise<void>;
+    onTestRunEnd({ results, testResults, duration, getSourcemap, snapshotSummary, filterRerunTestPaths, unhandledErrors, }: {
+        results: TestFileResult[];
+        testResults: TestResult[];
+        duration: Duration;
+        snapshotSummary: SnapshotSummary;
+        getSourcemap: GetSourcemap;
+        unhandledErrors?: Error[];
+        filterRerunTestPaths?: string[];
+    }): Promise<void>;
+}
+
+declare type DefaultReporterOptions = {
+    /**
+     * prints out summary of all tests
+     * @default true
+     */
+    summary?: boolean;
+    /**
+     * logger which write messages to
+     * @default process.stdout/process.stderr
+     */
+    logger?: Options['logger'];
+};
+
+/**
+ * This function helps you to autocomplete configuration types.
+ * It accepts a Rstest config object, or a function that returns a config.
+ */
+export declare function defineConfig(config: RstestConfig): RstestConfig;
+
+export declare function defineConfig(config: RstestConfigSyncFn): RstestConfigSyncFn;
+
+export declare function defineConfig(config: RstestConfigAsyncFn): RstestConfigAsyncFn;
+
+export declare function defineConfig(config: RstestConfigExport): RstestConfigExport;
+
+/**
+ * This function helps you to autocomplete configuration types.
+ * It accepts a Rstest project config object, or a function that returns a config.
+ */
+export declare function defineProject(config: ProjectConfig | NestedProjectConfig): ProjectConfig | NestedProjectConfig;
+
+export declare function defineProject(config: ProjectConfigSyncFn): ProjectConfigSyncFn;
+
+export declare function defineProject(config: ProjectConfigAsyncFn): ProjectConfigAsyncFn;
+
+export declare type Describe = DescribeFn & {
+    each: DescribeEachFn;
+    for: DescribeForFn;
+    only: Describe;
+    skip: Describe;
+    runIf: (condition: boolean) => Describe;
+    skipIf: (condition: boolean) => Describe;
+    todo: Describe;
+    concurrent: Describe;
+    sequential: Describe;
+};
+
+export declare const describe: Rstest['describe'];
+
+declare interface DescribeEachFn {
+    <T extends Record<string, unknown>>(cases: readonly T[]): (description: string, fn?: (param: T) => MaybePromise<void>) => void;
+    <T extends readonly [unknown, ...unknown[]]>(cases: readonly T[]): (description: string, fn: (...args: [...T]) => MaybePromise<void>) => void;
+    <T>(cases: readonly T[]): (description: string, fn: (param: T) => MaybePromise<void>) => void;
+}
+
+declare type DescribeFn = (description: string, fn?: () => void) => void;
+
+declare type DescribeForFn = <T>(cases: readonly T[]) => (description: string, fn?: (param: T) => MaybePromise<void>) => void;
+
+/**
+ * @param a Expected value
+ * @param b Received value
+ * @param options Diff options
+ * @returns {string | null} a string diff
+ */
+declare function diff(a: any, b: any, options?: DiffOptions): string | undefined;
+
+declare interface DiffOptions {
+    	aAnnotation?: string;
+    	aColor?: DiffOptionsColor;
+    	aIndicator?: string;
+    	bAnnotation?: string;
+    	bColor?: DiffOptionsColor;
+    	bIndicator?: string;
+    	changeColor?: DiffOptionsColor;
+    	changeLineTrailingSpaceColor?: DiffOptionsColor;
+    	commonColor?: DiffOptionsColor;
+    	commonIndicator?: string;
+    	commonLineTrailingSpaceColor?: DiffOptionsColor;
+    	contextLines?: number;
+    	emptyFirstOrLastLinePlaceholder?: string;
+    	expand?: boolean;
+    	includeChangeCounts?: boolean;
+    	omitAnnotationLines?: boolean;
+    	patchColor?: DiffOptionsColor;
+    	printBasicPrototype?: boolean;
+    	maxDepth?: number;
+    	compareKeys?: CompareKeys;
+    	truncateThreshold?: number;
+    	truncateAnnotation?: string;
+    	truncateAnnotationColor?: DiffOptionsColor;
+}
+
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+declare type DiffOptionsColor = (arg: string) => string;
+
+declare type Duration = {
+    totalTime: number;
+    buildTime: number;
+    testTime: number;
+};
+
+declare interface EncodedSourceMap extends SourceMapV3 {
+    mappings: string;
+}
+
+declare type EncodedSourceMapXInput = EncodedSourceMap & XInput;
+
+export declare type Expect = ExpectStatic;
+
+export declare const expect: Rstest['expect'];
+
+declare type ExpectationResult = SyncExpectationResult | AsyncExpectationResult;
+
+declare interface ExpectPollOptions {
+    /**
+     * @default 50
+     */
+    interval?: number;
+    /**
+     * @default 1000
+     */
+    timeout?: number;
+    message?: string;
+}
+
+declare interface ExpectStatic extends ExpectStatic_2 {
+    <T>(actual: T, message?: string): Assertion<T>;
+    unreachable: (message?: string) => never;
+    soft: <T>(actual: T, message?: string) => Assertion<T>;
+    poll: <T>(actual: () => T, options?: ExpectPollOptions) => Omit<PromisifyAssertion_2<Awaited<T>>, 'rejects' | 'resolves' | 'toThrow' | 'toThrowError' | 'throw' | 'throws' | 'matchSnapshot' | 'toMatchSnapshot' | 'toMatchInlineSnapshot' | 'toThrowErrorMatchingSnapshot' | 'toThrowErrorMatchingInlineSnapshot'>;
+    addEqualityTesters: (testers: Tester[]) => void;
+    assertions: (expected: number) => void;
+    hasAssertions: () => void;
+    addSnapshotSerializer: typeof addSerializer;
+    getState: () => MatcherState_2;
+    setState: (state: Partial<MatcherState_2>) => void;
+}
+
+declare interface ExpectStatic_2 extends Chai.ExpectStatic, Matchers, AsymmetricMatchersContaining {
+    	<T>(actual: T, message?: string): Assertion_2<T>;
+    	extend: (expects: MatchersObject) => void;
+    	anything: () => any;
+    	any: (constructor: unknown) => any;
+    	getState: () => MatcherState;
+    	setState: (state: Partial<MatcherState>) => void;
+    	not: AsymmetricMatchersContaining;
+}
+
+export declare type ExtendConfig = Omit<RstestConfig, 'projects'>;
+
+export declare type ExtendConfigFn = (userConfig: Readonly<RstestConfig>) => MaybePromise<ExtendConfig>;
+
+/**
+ * Names of clock methods that may be faked by install.
+ */
+declare type FakeMethod =
+| "setTimeout"
+| "clearTimeout"
+| "setImmediate"
+| "clearImmediate"
+| "setInterval"
+| "clearInterval"
+| "Date"
+| "nextTick"
+| "hrtime"
+| "requestAnimationFrame"
+| "cancelAnimationFrame"
+| "requestIdleCallback"
+| "cancelIdleCallback"
+| "performance"
+| "queueMicrotask";
+
+declare interface FakeTimerInstallOpts {
+    /**
+     * Installs fake timers with the specified unix epoch (default: 0)
+     */
+    now?: number | Date | undefined;
+
+    /**
+     * An array with names of global methods and APIs to fake. By default, `@sinonjs/fake-timers` does not replace `nextTick()` and `queueMicrotask()`.
+     * For instance, `FakeTimers.install({ toFake: ['setTimeout', 'nextTick'] })` will fake only `setTimeout()` and `nextTick()`
+     */
+    toFake?: FakeMethod[] | undefined;
+
+    /**
+     * The maximum number of timers that will be run when calling runAll() (default: 1000)
+     */
+    loopLimit?: number | undefined;
+
+    /**
+     * Tells @sinonjs/fake-timers to increment mocked time automatically based on the real system time shift (e.g. the mocked time will be incremented by
+     * 20ms for every 20ms change in the real system time) (default: false)
+     */
+    shouldAdvanceTime?: boolean | undefined;
+
+    /**
+     * Relevant only when using with shouldAdvanceTime: true. increment mocked time by advanceTimeDelta ms every advanceTimeDelta ms change
+     * in the real system time (default: 20)
+     */
+    advanceTimeDelta?: number | undefined;
+
+    /**
+     * Tells FakeTimers to clear 'native' (i.e. not fake) timers by delegating to their respective handlers. These are not cleared by
+     * default, leading to potentially unexpected behavior if timers existed prior to installing FakeTimers. (default: false)
+     */
+    shouldClearNativeTimers?: boolean | undefined;
+}
+
+declare class FileCoverage implements FileCoverageData {
+    constructor(data: string | FileCoverage | FileCoverageData);
+    merge(other: FileCoverageData): void;
+    getBranchCoverageByLine(): { [line: number]: Coverage };
+    getLineCoverage(): { [line: number]: number };
+    getUncoveredLines(): number[];
+    resetHits(): void;
+    computeBranchTotals(): Totals;
+    computeSimpleTotals(): Totals;
+    toSummary(): CoverageSummary;
+    toJSON(): object;
+
+    data: FileCoverageData;
+    path: string;
+    statementMap: { [key: string]: Range_2 };
+    fnMap: { [key: string]: FunctionMapping };
+    branchMap: { [key: string]: BranchMapping };
+    s: { [key: string]: number };
+    f: { [key: string]: number };
+    b: { [key: string]: number[] };
+}
+
+declare interface FileCoverageData {
+    path: string;
+    statementMap: { [key: string]: Range_2 };
+    fnMap: { [key: string]: FunctionMapping };
+    branchMap: { [key: string]: BranchMapping };
+    s: { [key: string]: number };
+    f: { [key: string]: number };
+    b: { [key: string]: number[] };
+}
+
+declare interface FileOptions {
+    file: string;
+}
+
+/**
+ * utility for writing files under a specific directory
+ */
+declare class FileWriter {
+    constructor(baseDir: string);
+    static startCapture(): void;
+    static stopCapture(): void;
+    static getOutput(): string;
+    static resetOutput(): void;
+    /**
+     * returns a FileWriter that is rooted at the supplied subdirectory
+     */
+    writeForDir(subdir: string): FileWriter;
+    /**
+     * copies a file from a source directory to a destination name
+     */
+    copyFile(source: string, dest: string, header?: string): void;
+    /**
+     * returns a content writer for writing content to the supplied file.
+     */
+    writeFile(file: string | null): ContentWriter;
+}
+
+declare type Fixture<T, K extends keyof T, ExtraContext = object> = ((...args: any) => any) extends T[K] ? T[K] extends any ? FixtureFn<T, K, Omit<ExtraContext, Exclude<keyof T, K>>> : never : T[K] | (T[K] extends any ? FixtureFn<T, K, Omit<ExtraContext, Exclude<keyof T, K>>> : never);
+
+declare type FixtureFn<T, K extends keyof T, ExtraContext> = (context: Omit<T, K> & ExtraContext, use: Use<T[K]>) => Promise<void>;
+
+declare interface FixtureOptions {
+    /**
+     * Whether to automatically set up current fixture, even though it's not being used in tests.
+     */
+    auto?: boolean;
+}
+
+declare type Fixtures<T extends Record<string, any> = object, ExtraContext = object> = {
+    [K in keyof T]: Fixture<T, K, ExtraContext & TestContext> | [Fixture<T, K, ExtraContext & TestContext>, FixtureOptions?];
+};
+
+declare type FormattedError = {
+    fullStack?: boolean;
+    message: string;
+    name?: string;
+    stack?: string;
+    diff?: string;
+    expected?: string;
+    actual?: string;
+};
+
+declare interface Formatter {
+    (input?: unknown): string;
+    open: string;
+    close: string;
+}
+
+declare type FunctionLike = (...args: any) => any;
+
+declare interface FunctionMapping {
+    name: string;
+    decl: Range_2;
+    loc: Range_2;
+    line: number;
+}
+
+declare type GeneratedColumn = number;
+
+declare function getMatcherUtils(): {
+    	EXPECTED_COLOR: Formatter
+    	RECEIVED_COLOR: Formatter
+    	INVERTED_COLOR: Formatter
+    	BOLD_WEIGHT: Formatter
+    	DIM_COLOR: Formatter
+    	diff: typeof diff
+    	matcherHint: typeof matcherHint
+    	printReceived: typeof printReceived
+    	printExpected: typeof printExpected
+    	printDiffOrStringify: typeof printDiffOrStringify
+    	printWithType: typeof printWithType
+};
+
+declare type GetSourcemap = (sourcePath: string) => Promise<SourceMapInput | null>;
+
+declare class GithubActionsReporter {
+    private onWritePath;
+    private rootPath;
+    constructor({ options, rootPath, }: {
+        rootPath: string;
+        options: {
+            onWritePath: (path: string) => string;
+        };
+    });
+    private log;
+    onTestRunEnd({ results, testResults, getSourcemap, }: {
+        results: TestFileResult[];
+        testResults: TestResult[];
+        duration: Duration;
+        snapshotSummary: SnapshotSummary;
+        getSourcemap: GetSourcemap;
+        filterRerunTestPaths?: string[];
+    }): Promise<void>;
+}
+
+declare interface HtmlOptions {
+    verbose: boolean;
+    skipEmpty: boolean;
+    subdir: string;
+    linkMapper: LinkMapper;
+}
+
+declare interface HtmlSpaOptions extends HtmlOptions {
+    metricsToShow: Array<"lines" | "branches" | "functions" | "statements">;
+}
+
+declare type Indent = (arg0: string) => string;
+
+export declare function initCli(options: CommonOptions): Promise<{
+    config: RstestConfig;
+    configFilePath?: string;
+    projects: Project[];
+}>;
+
+/**
+ * A list of glob patterns or files that match your test projects.
+ *
+ * eg. ['packages/*', 'examples/node/rstest.config.ts']
+ */
+/**
+ * Inline project config must include a name.
+ */
+declare type InlineProjectConfig = ProjectConfig & {
+    name: string;
+};
+
+declare interface InlineSnapshotMatcher<T> {
+    <U extends {
+        [P in keyof T]: any;
+    }>(properties: Partial<U>, snapshot?: string, message?: string): void;
+    (message?: string): void;
+}
+
+export declare const it: Rstest['it'];
+
+declare interface JestAssertion<T = any> extends jest.Matchers<void, T>, CustomMatcher {
+    	/**
+     	* Used when you want to check that two objects have the same value.
+     	* This matcher recursively checks the equality of all fields, rather than checking for object identity.
+     	*
+     	* @example
+     	* expect(user).toEqual({ name: 'Alice', age: 30 });
+     	*/
+    	toEqual: <E>(expected: E) => void;
+    	/**
+     	* Use to test that objects have the same types as well as structure.
+     	*
+     	* @example
+     	* expect(user).toStrictEqual({ name: 'Alice', age: 30 });
+     	*/
+    	toStrictEqual: <E>(expected: E) => void;
+    	/**
+     	* Checks that a value is what you expect. It calls `Object.is` to compare values.
+     	* Don't use `toBe` with floating-point numbers.
+     	*
+     	* @example
+     	* expect(result).toBe(42);
+     	* expect(status).toBe(true);
+     	*/
+    	toBe: <E>(expected: E) => void;
+    	/**
+     	* Check that a string matches a regular expression.
+     	*
+     	* @example
+     	* expect(message).toMatch(/hello/);
+     	* expect(greeting).toMatch('world');
+     	*/
+    	toMatch: (expected: string | RegExp) => void;
+    	/**
+     	* Used to check that a JavaScript object matches a subset of the properties of an object
+     	*
+     	* @example
+     	* expect(user).toMatchObject({
+     	*   name: 'Alice',
+     	*   address: { city: 'Wonderland' }
+     	* });
+     	*/
+    	toMatchObject: <E extends object | any[]>(expected: E) => void;
+    	/**
+     	* Used when you want to check that an item is in a list.
+     	* For testing the items in the list, this uses `===`, a strict equality check.
+     	*
+     	* @example
+     	* expect(items).toContain('apple');
+     	* expect(numbers).toContain(5);
+     	*/
+    	toContain: <E>(item: E) => void;
+    	/**
+     	* Used when you want to check that an item is in a list.
+     	* For testing the items in the list, this matcher recursively checks the
+     	* equality of all fields, rather than checking for object identity.
+     	*
+     	* @example
+     	* expect(items).toContainEqual({ name: 'apple', quantity: 1 });
+     	*/
+    	toContainEqual: <E>(item: E) => void;
+    	/**
+     	* Use when you don't care what a value is, you just want to ensure a value
+     	* is true in a boolean context. In JavaScript, there are six falsy values:
+     	* `false`, `0`, `''`, `null`, `undefined`, and `NaN`. Everything else is truthy.
+     	*
+     	* @example
+     	* expect(user.isActive).toBeTruthy();
+     	*/
+    	toBeTruthy: () => void;
+    	/**
+     	* When you don't care what a value is, you just want to
+     	* ensure a value is false in a boolean context.
+     	*
+     	* @example
+     	* expect(user.isActive).toBeFalsy();
+     	*/
+    	toBeFalsy: () => void;
+    	/**
+     	* For comparing floating point numbers.
+     	*
+     	* @example
+     	* expect(score).toBeGreaterThan(10);
+     	*/
+    	toBeGreaterThan: (num: number | bigint) => void;
+    	/**
+     	* For comparing floating point numbers.
+     	*
+     	* @example
+     	* expect(score).toBeGreaterThanOrEqual(10);
+     	*/
+    	toBeGreaterThanOrEqual: (num: number | bigint) => void;
+    	/**
+     	* For comparing floating point numbers.
+     	*
+     	* @example
+     	* expect(score).toBeLessThan(10);
+     	*/
+    	toBeLessThan: (num: number | bigint) => void;
+    	/**
+     	* For comparing floating point numbers.
+     	*
+     	* @example
+     	* expect(score).toBeLessThanOrEqual(10);
+     	*/
+    	toBeLessThanOrEqual: (num: number | bigint) => void;
+    	/**
+     	* Used to check that a variable is NaN.
+     	*
+     	* @example
+     	* expect(value).toBeNaN();
+     	*/
+    	toBeNaN: () => void;
+    	/**
+     	* Used to check that a variable is undefined.
+     	*
+     	* @example
+     	* expect(value).toBeUndefined();
+     	*/
+    	toBeUndefined: () => void;
+    	/**
+     	* This is the same as `.toBe(null)` but the error messages are a bit nicer.
+     	* So use `.toBeNull()` when you want to check that something is null.
+     	*
+     	* @example
+     	* expect(value).toBeNull();
+     	*/
+    	toBeNull: () => void;
+    	/**
+     	* Ensure that a variable is not undefined.
+     	*
+     	* @example
+     	* expect(value).toBeDefined();
+     	*/
+    	toBeDefined: () => void;
+    	/**
+     	* Ensure that an object is an instance of a class.
+     	* This matcher uses `instanceof` underneath.
+     	*
+     	* @example
+     	* expect(new Date()).toBeInstanceOf(Date);
+     	*/
+    	toBeInstanceOf: <E>(expected: E) => void;
+    	/**
+     	* Used to check that an object has a `.length` property
+     	* and it is set to a certain numeric value.
+     	*
+     	* @example
+     	* expect([1, 2, 3]).toHaveLength(3);
+     	* expect('hello').toHaveLength(5);
+     	*/
+    	toHaveLength: (length: number) => void;
+    	/**
+     	* Use to check if a property at the specified path exists on an object.
+     	* For checking deeply nested properties, you may use dot notation or an array containing
+     	* the path segments for deep references.
+     	*
+     	* Optionally, you can provide a value to check if it matches the value present at the path
+     	* on the target object. This matcher uses 'deep equality' (like `toEqual()`) and recursively checks
+     	* the equality of all fields.
+     	*
+     	* @example
+     	* expect(user).toHaveProperty('address.city', 'New York');
+     	* expect(config).toHaveProperty(['settings', 'theme'], 'dark');
+     	*/
+    	toHaveProperty: <E>(property: string | (string | number)[], value?: E) => void;
+    	/**
+     	* Using exact equality with floating point numbers is a bad idea.
+     	* Rounding means that intuitive things fail.
+     	* The default for `precision` is 2.
+     	*
+     	* @example
+     	* expect(price).toBeCloseTo(9.99, 2);
+     	*/
+    	toBeCloseTo: (number: number, numDigits?: number) => void;
+    	/**
+     	* Ensures that a mock function is called an exact number of times.
+     	*
+     	* Also under the alias `expect.toBeCalledTimes`.
+     	*
+     	* @example
+     	* expect(mockFunc).toHaveBeenCalledTimes(2);
+     	*/
+    	toHaveBeenCalledTimes: (times: number) => void;
+    	/**
+     	* Ensures that a mock function is called an exact number of times.
+     	*
+     	* Alias for `expect.toHaveBeenCalledTimes`.
+     	*
+     	* @example
+     	* expect(mockFunc).toBeCalledTimes(2);
+     	*/
+    	toBeCalledTimes: (times: number) => void;
+    	/**
+     	* Ensures that a mock function is called.
+     	*
+     	* Also under the alias `expect.toBeCalled`.
+     	*
+     	* @example
+     	* expect(mockFunc).toHaveBeenCalled();
+     	*/
+    	toHaveBeenCalled: () => void;
+    	/**
+     	* Ensures that a mock function is called.
+     	*
+     	* Alias for `expect.toHaveBeenCalled`.
+     	*
+     	* @example
+     	* expect(mockFunc).toBeCalled();
+     	*/
+    	toBeCalled: () => void;
+    	/**
+     	* Ensure that a mock function is called with specific arguments.
+     	*
+     	* Also under the alias `expect.toBeCalledWith`.
+     	*
+     	* @example
+     	* expect(mockFunc).toHaveBeenCalledWith('arg1', 42);
+     	*/
+    	toHaveBeenCalledWith: <E extends any[]>(...args: E) => void;
+    	/**
+     	* Ensure that a mock function is called with specific arguments.
+     	*
+     	* Alias for `expect.toHaveBeenCalledWith`.
+     	*
+     	* @example
+     	* expect(mockFunc).toBeCalledWith('arg1', 42);
+     	*/
+    	toBeCalledWith: <E extends any[]>(...args: E) => void;
+    	/**
+     	* Ensure that a mock function is called with specific arguments on an Nth call.
+     	*
+     	* Also under the alias `expect.nthCalledWith`.
+     	*
+     	* @example
+     	* expect(mockFunc).toHaveBeenNthCalledWith(2, 'secondArg');
+     	*/
+    	toHaveBeenNthCalledWith: <E extends any[]>(n: number, ...args: E) => void;
+    	/**
+     	* Ensure that a mock function is called with specific arguments on an Nth call.
+     	*
+     	* Alias for `expect.toHaveBeenNthCalledWith`.
+     	*
+     	* @example
+     	* expect(mockFunc).nthCalledWith(2, 'secondArg');
+     	*/
+    	nthCalledWith: <E extends any[]>(nthCall: number, ...args: E) => void;
+    	/**
+     	* If you have a mock function, you can use `.toHaveBeenLastCalledWith`
+     	* to test what arguments it was last called with.
+     	*
+     	* Also under the alias `expect.lastCalledWith`.
+     	*
+     	* @example
+     	* expect(mockFunc).toHaveBeenLastCalledWith('lastArg');
+     	*/
+    	toHaveBeenLastCalledWith: <E extends any[]>(...args: E) => void;
+    	/**
+     	* If you have a mock function, you can use `.lastCalledWith`
+     	* to test what arguments it was last called with.
+     	*
+     	* Alias for `expect.toHaveBeenLastCalledWith`.
+     	*
+     	* @example
+     	* expect(mockFunc).lastCalledWith('lastArg');
+     	*/
+    	lastCalledWith: <E extends any[]>(...args: E) => void;
+    	/**
+     	* Used to test that a function throws when it is called.
+     	*
+     	* Also under the alias `expect.toThrowError`.
+     	*
+     	* @example
+     	* expect(() => functionWithError()).toThrow('Error message');
+     	* expect(() => parseJSON('invalid')).toThrow(SyntaxError);
+     	*/
+    	toThrow: (expected?: string | Constructable | RegExp | Error) => void;
+    	/**
+     	* Used to test that a function throws when it is called.
+     	*
+     	* Alias for `expect.toThrow`.
+     	*
+     	* @example
+     	* expect(() => functionWithError()).toThrowError('Error message');
+     	* expect(() => parseJSON('invalid')).toThrowError(SyntaxError);
+     	*/
+    	toThrowError: (expected?: string | Constructable | RegExp | Error) => void;
+    	/**
+     	* Use to test that the mock function successfully returned (i.e., did not throw an error) at least one time
+     	*
+     	* Alias for `expect.toHaveReturned`.
+     	*
+     	* @example
+     	* expect(mockFunc).toReturn();
+     	*/
+    	toReturn: () => void;
+    	/**
+     	* Use to test that the mock function successfully returned (i.e., did not throw an error) at least one time
+     	*
+     	* Also under the alias `expect.toReturn`.
+     	*
+     	* @example
+     	* expect(mockFunc).toHaveReturned();
+     	*/
+    	toHaveReturned: () => void;
+    	/**
+     	* Use to ensure that a mock function returned successfully (i.e., did not throw an error) an exact number of times.
+     	* Any calls to the mock function that throw an error are not counted toward the number of times the function returned.
+     	*
+     	* Alias for `expect.toHaveReturnedTimes`.
+     	*
+     	* @example
+     	* expect(mockFunc).toReturnTimes(3);
+     	*/
+    	toReturnTimes: (times: number) => void;
+    	/**
+     	* Use to ensure that a mock function returned successfully (i.e., did not throw an error) an exact number of times.
+     	* Any calls to the mock function that throw an error are not counted toward the number of times the function returned.
+     	*
+     	* Also under the alias `expect.toReturnTimes`.
+     	*
+     	* @example
+     	* expect(mockFunc).toHaveReturnedTimes(3);
+     	*/
+    	toHaveReturnedTimes: (times: number) => void;
+    	/**
+     	* Use to ensure that a mock function returned a specific value.
+     	*
+     	* Alias for `expect.toHaveReturnedWith`.
+     	*
+     	* @example
+     	* expect(mockFunc).toReturnWith('returnValue');
+     	*/
+    	toReturnWith: <E>(value: E) => void;
+    	/**
+     	* Use to ensure that a mock function returned a specific value.
+     	*
+     	* Also under the alias `expect.toReturnWith`.
+     	*
+     	* @example
+     	* expect(mockFunc).toHaveReturnedWith('returnValue');
+     	*/
+    	toHaveReturnedWith: <E>(value: E) => void;
+    	/**
+     	* Use to test the specific value that a mock function last returned.
+     	* If the last call to the mock function threw an error, then this matcher will fail
+     	* no matter what value you provided as the expected return value.
+     	*
+     	* Also under the alias `expect.lastReturnedWith`.
+     	*
+     	* @example
+     	* expect(mockFunc).toHaveLastReturnedWith('lastValue');
+     	*/
+    	toHaveLastReturnedWith: <E>(value: E) => void;
+    	/**
+     	* Use to test the specific value that a mock function last returned.
+     	* If the last call to the mock function threw an error, then this matcher will fail
+     	* no matter what value you provided as the expected return value.
+     	*
+     	* Alias for `expect.toHaveLastReturnedWith`.
+     	*
+     	* @example
+     	* expect(mockFunc).lastReturnedWith('lastValue');
+     	*/
+    	lastReturnedWith: <E>(value: E) => void;
+    	/**
+     	* Use to test the specific value that a mock function returned for the nth call.
+     	* If the nth call to the mock function threw an error, then this matcher will fail
+     	* no matter what value you provided as the expected return value.
+     	*
+     	* Also under the alias `expect.nthReturnedWith`.
+     	*
+     	* @example
+     	* expect(mockFunc).toHaveNthReturnedWith(2, 'nthValue');
+     	*/
+    	toHaveNthReturnedWith: <E>(nthCall: number, value: E) => void;
+    	/**
+     	* Use to test the specific value that a mock function returned for the nth call.
+     	* If the nth call to the mock function threw an error, then this matcher will fail
+     	* no matter what value you provided as the expected return value.
+     	*
+     	* Alias for `expect.toHaveNthReturnedWith`.
+     	*
+     	* @example
+     	* expect(mockFunc).nthReturnedWith(2, 'nthValue');
+     	*/
+    	nthReturnedWith: <E>(nthCall: number, value: E) => void;
+}
+
+declare type JsonOptions = FileOptions;
+
+declare type JsonSummaryOptions = FileOptions;
+
+declare class JUnitReporter implements Reporter {
+    private rootPath;
+    private outputPath?;
+    constructor({ rootPath, options: { outputPath }, }: {
+        rootPath: string;
+        options?: {
+            outputPath?: string;
+        };
+    });
+    private sanitizeXml;
+    private escapeXml;
+    private createJUnitTestCase;
+    private createJUnitTestSuite;
+    private generateJUnitXml;
+    onTestRunEnd({ results, testResults, duration, getSourcemap, }: {
+        getSourcemap: GetSourcemap;
+        results: TestFileResult[];
+        testResults: TestResult[];
+        duration: Duration;
+    }): Promise<void>;
+}
+
+declare interface LcovOnlyOptions extends FileOptions, ProjectOptions {}
+
+declare interface LcovOptions extends FileOptions, ProjectOptions {}
+
+declare interface LinkMapper {
+    getPath(node: string | Node_2): string;
+    relativePath(source: string | Node_2, target: string | Node_2): string;
+    assetPath(node: Node_2, name: string): string;
+}
+
+declare type ListCommandOptions = {
+    filesOnly?: boolean;
+    json?: boolean | string;
+    includeSuites?: boolean;
+    printLocation?: boolean;
+};
+
+declare type ListCommandResult = {
+    tests: Test_2[];
+    testPath: string;
+    project: string;
+    errors?: FormattedError[];
+};
+
+export declare function loadConfig({ cwd, path, envMode, configLoader, }: {
+    cwd?: string;
+    path?: string;
+    envMode?: string;
+    configLoader?: LoadConfigOptions['loader'];
+}): Promise<{
+    content: RstestConfig;
+    filePath: string | null;
+}>;
+
+declare type Location_2 = {
+    line: number;
+    column: number;
+};
+
+declare interface Location_3 {
+    line: number;
+    column: number;
+}
+
+declare function matcherHint(matcherName: string, received?: string, expected?: string, options?: MatcherHintOptions): string;
+
+declare interface MatcherHintOptions {
+    	comment?: string;
+    	expectedColor?: Formatter;
+    	isDirectExpectCall?: boolean;
+    	isNot?: boolean;
+    	promise?: string;
+    	receivedColor?: Formatter;
+    	secondArgument?: string;
+    	secondArgumentColor?: Formatter;
+}
+
+declare interface Matchers<T = any> {}
+
+declare type MatchersObject<T extends MatcherState = MatcherState> = Record<string, RawMatcherFn<T>> & ThisType<T> & { [K in keyof Matchers<T>]? : RawMatcherFn<T, Parameters<Matchers<T>[K]>> };
+
+declare interface MatcherState {
+    	customTesters: Array<Tester>;
+    	assertionCalls: number;
+    	currentTestName?: string;
+    	dontThrow?: () => void;
+    	error?: Error;
+    	equals: (a: unknown, b: unknown, customTesters?: Array<Tester>, strictCheck?: boolean) => boolean;
+    	expand?: boolean;
+    	expectedAssertionsNumber?: number | null;
+    	expectedAssertionsNumberErrorGen?: (() => Error) | null;
+    	isExpectingAssertions?: boolean;
+    	isExpectingAssertionsError?: Error | null;
+    	isNot: boolean;
+    	// environment: VitestEnvironment
+    	promise: string;
+    	// snapshotState: SnapshotState
+    	suppressedErrors: Array<Error>;
+    	testPath?: string;
+    	utils: ReturnType<typeof getMatcherUtils> & {
+        		diff: typeof diff
+        		stringify: typeof stringify
+        		iterableEquality: Tester
+        		subsetEquality: Tester
+        	};
+    	soft?: boolean;
+    	poll?: boolean;
+}
+
+declare interface MatcherState_2 extends MatcherState {
+    environment: string;
+    snapshotState: SnapshotState;
+}
+
+declare type MaybePromise<T> = T | Promise<T>;
+
+export declare const mergeProjectConfig: (...configs: ProjectConfig[]) => ProjectConfig;
+
+export declare const mergeRstestConfig: (...configs: RstestConfig[]) => RstestConfig;
+
+export declare interface Mock<T extends FunctionLike = FunctionLike> extends MockInstance_2<T> {
+    new (...args: Parameters<T>): ReturnType<T>;
+    (...args: Parameters<T>): ReturnType<T>;
+}
+
+declare interface MockContext<T extends Procedure> {
+    	/**
+     	* This is an array containing all arguments for each call. One item of the array is the arguments of that call.
+     	*
+     	* @see https://vitest.dev/api/mock#mock-calls
+     	* @example
+     	* const fn = vi.fn()
+     	*
+     	* fn('arg1', 'arg2')
+     	* fn('arg3')
+     	*
+     	* fn.mock.calls === [
+     	*   ['arg1', 'arg2'], // first call
+     	*   ['arg3'], // second call
+     	* ]
+     	*/
+    	calls: Parameters<T>[];
+    	/**
+     	* This is an array containing all instances that were instantiated when mock was called with a `new` keyword. Note that this is an actual context (`this`) of the function, not a return value.
+     	* @see https://vitest.dev/api/mock#mock-instances
+     	*/
+    	instances: ReturnType<T>[];
+    	/**
+     	* An array of `this` values that were used during each call to the mock function.
+     	* @see https://vitest.dev/api/mock#mock-contexts
+     	*/
+    	contexts: ThisParameterType<T>[];
+    	/**
+     	* The order of mock's execution. This returns an array of numbers which are shared between all defined mocks.
+     	*
+     	* @see https://vitest.dev/api/mock#mock-invocationcallorder
+     	* @example
+     	* const fn1 = vi.fn()
+     	* const fn2 = vi.fn()
+     	*
+     	* fn1()
+     	* fn2()
+     	* fn1()
+     	*
+     	* fn1.mock.invocationCallOrder === [1, 3]
+     	* fn2.mock.invocationCallOrder === [2]
+     	*/
+    	invocationCallOrder: number[];
+    	/**
+     	* This is an array containing all values that were `returned` from the function.
+     	*
+     	* The `value` property contains the returned value or thrown error. If the function returned a `Promise`, then `result` will always be `'return'` even if the promise was rejected.
+     	*
+     	* @see https://vitest.dev/api/mock#mock-results
+     	* @example
+     	* const fn = vi.fn()
+     	*   .mockReturnValueOnce('result')
+     	*   .mockImplementationOnce(() => { throw new Error('thrown error') })
+     	*
+     	* const result = fn()
+     	*
+     	* try {
+     	*   fn()
+     	* }
+     	* catch {}
+     	*
+     	* fn.mock.results === [
+     	*   {
+     	*     type: 'return',
+     	*     value: 'result',
+     	*   },
+     	*   {
+     	*     type: 'throw',
+     	*     value: Error,
+     	*   },
+     	* ]
+     	*/
+    	results: MockResult<ReturnType<T>>[];
+    	/**
+     	* An array containing all values that were `resolved` or `rejected` from the function.
+     	*
+     	* This array will be empty if the function was never resolved or rejected.
+     	*
+     	* @see https://vitest.dev/api/mock#mock-settledresults
+     	* @example
+     	* const fn = vi.fn().mockResolvedValueOnce('result')
+     	*
+     	* const result = fn()
+     	*
+     	* fn.mock.settledResults === []
+     	* fn.mock.results === [
+     	*   {
+     	*     type: 'return',
+     	*     value: Promise<'result'>,
+     	*   },
+     	* ]
+     	*
+     	* await result
+     	*
+     	* fn.mock.settledResults === [
+     	*   {
+     	*     type: 'fulfilled',
+     	*     value: 'result',
+     	*   },
+     	* ]
+     	*/
+    	settledResults: MockSettledResult<Awaited<ReturnType<T>>>[];
+    	/**
+     	* This contains the arguments of the last call. If spy wasn't called, will return `undefined`.
+     	* @see https://vitest.dev/api/mock#mock-lastcall
+     	*/
+    	lastCall: Parameters<T> | undefined;
+}
+
+declare type MockContext_2<T extends FunctionLike = FunctionLike> = {
+    /**
+     * List of the call arguments of all calls that have been made to the mock.
+     */
+    calls: Parameters<T>[];
+    /**
+     * List of all the object instances that have been instantiated from the mock.
+     */
+    instances: ReturnType<T>[];
+    /**
+     * List of all the function contexts that have been applied to calls to the mock.
+     */
+    contexts: ThisParameterType<T>[];
+    /**
+     * The order of mock's execution.
+     * This returns an array of numbers which are shared between all defined mocks.
+     * The index is starting with `1`.
+     */
+    invocationCallOrder: number[];
+    /**
+     * List of the call arguments of the last call that was made to the mock.
+     * If the function was not called, it will return `undefined`.
+     */
+    lastCall: Parameters<T> | undefined;
+    /**
+     * List of the results of all calls that have been made to the mock.
+     */
+    results: MockResult_2<ReturnType<T>>[];
+    /**
+     * List of the results of all values that were `resolved` or `rejected` from the function.
+     */
+    settledResults: MockSettledResult_2<Awaited<ReturnType<T>>>[];
+};
+
+declare type MockFactory<T = unknown> = () => MaybePromise<Partial<T>>;
+
+declare type MockFn = <T extends FunctionLike = FunctionLike>(fn?: T) => Mock<T>;
+
+declare interface MockInstance<T extends Procedure = Procedure> extends Disposable {
+    	/**
+     	* Use it to return the name assigned to the mock with the `.mockName(name)` method. By default, it will return `vi.fn()`.
+     	* @see https://vitest.dev/api/mock#getmockname
+     	*/
+    	getMockName(): string;
+    	/**
+     	* Sets the internal mock name. This is useful for identifying the mock when an assertion fails.
+     	* @see https://vitest.dev/api/mock#mockname
+     	*/
+    	mockName(name: string): this;
+    	/**
+     	* Current context of the mock. It stores information about all invocation calls, instances, and results.
+     	*/
+    	mock: MockContext<T>;
+    	/**
+     	* Clears all information about every call. After calling it, all properties on `.mock` will return to their initial state. This method does not reset implementations. It is useful for cleaning up mocks between different assertions.
+     	*
+     	* To automatically call this method before each test, enable the [`clearMocks`](https://vitest.dev/config/#clearmocks) setting in the configuration.
+     	* @see https://vitest.dev/api/mock#mockclear
+     	*/
+    	mockClear(): this;
+    	/**
+     	* Does what `mockClear` does and resets inner implementation to the original function. This also resets all "once" implementations.
+     	*
+     	* Note that resetting a mock from `vi.fn()` will set implementation to an empty function that returns `undefined`.
+     	* Resetting a mock from `vi.fn(impl)` will set implementation to `impl`. It is useful for completely resetting a mock to its default state.
+     	*
+     	* To automatically call this method before each test, enable the [`mockReset`](https://vitest.dev/config/#mockreset) setting in the configuration.
+     	* @see https://vitest.dev/api/mock#mockreset
+     	*/
+    	mockReset(): this;
+    	/**
+     	* Does what `mockReset` does and restores original descriptors of spied-on objects.
+     	*
+     	* Note that restoring mock from `vi.fn()` will set implementation to an empty function that returns `undefined`. Restoring a `vi.fn(impl)` will restore implementation to `impl`.
+     	* @see https://vitest.dev/api/mock#mockrestore
+     	*/
+    	mockRestore(): void;
+    	/**
+     	* Returns current permanent mock implementation if there is one.
+     	*
+     	* If mock was created with `vi.fn`, it will consider passed down method as a mock implementation.
+     	*
+     	* If mock was created with `vi.spyOn`, it will return `undefined` unless a custom implementation was provided.
+     	*/
+    	getMockImplementation(): NormalizedProcedure<T> | undefined;
+    	/**
+     	* Accepts a function to be used as the mock implementation. TypeScript expects the arguments and return type to match those of the original function.
+     	* @see https://vitest.dev/api/mock#mockimplementation
+     	* @example
+     	* const increment = vi.fn().mockImplementation(count => count + 1);
+     	* expect(increment(3)).toBe(4);
+     	*/
+    	mockImplementation(fn: NormalizedProcedure<T>): this;
+    	/**
+     	* Accepts a function to be used as the mock implementation. TypeScript expects the arguments and return type to match those of the original function. This method can be chained to produce different results for multiple function calls.
+     	*
+     	* When the mocked function runs out of implementations, it will invoke the default implementation set with `vi.fn(() => defaultValue)` or `.mockImplementation(() => defaultValue)` if they were called.
+     	* @see https://vitest.dev/api/mock#mockimplementationonce
+     	* @example
+     	* const fn = vi.fn(count => count).mockImplementationOnce(count => count + 1);
+     	* expect(fn(3)).toBe(4);
+     	* expect(fn(3)).toBe(3);
+     	*/
+    	mockImplementationOnce(fn: NormalizedProcedure<T>): this;
+    	/**
+     	* Overrides the original mock implementation temporarily while the callback is being executed.
+     	*
+     	* Note that this method takes precedence over the [`mockImplementationOnce`](https://vitest.dev/api/mock#mockimplementationonce).
+     	* @see https://vitest.dev/api/mock#withimplementation
+     	* @example
+     	* const myMockFn = vi.fn(() => 'original')
+     	*
+     	* myMockFn.withImplementation(() => 'temp', () => {
+     	*   myMockFn() // 'temp'
+     	* })
+     	*
+     	* myMockFn() // 'original'
+     	*/
+    	withImplementation<T2>(fn: NormalizedProcedure<T>, cb: () => T2): T2 extends Promise<unknown> ? Promise<this> : this;
+    	/**
+     	* Use this if you need to return the `this` context from the method without invoking the actual implementation.
+     	* @see https://vitest.dev/api/mock#mockreturnthis
+     	*/
+    	mockReturnThis(): this;
+    	/**
+     	* Accepts a value that will be returned whenever the mock function is called. TypeScript will only accept values that match the return type of the original function.
+     	* @see https://vitest.dev/api/mock#mockreturnvalue
+     	* @example
+     	* const mock = vi.fn()
+     	* mock.mockReturnValue(42)
+     	* mock() // 42
+     	* mock.mockReturnValue(43)
+     	* mock() // 43
+     	*/
+    	mockReturnValue(value: ReturnType<T>): this;
+    	/**
+     	* Accepts a value that will be returned whenever the mock function is called. TypeScript will only accept values that match the return type of the original function.
+     	*
+     	* When the mocked function runs out of implementations, it will invoke the default implementation set with `vi.fn(() => defaultValue)` or `.mockImplementation(() => defaultValue)` if they were called.
+     	* @example
+     	* const myMockFn = vi
+     	*   .fn()
+     	*   .mockReturnValue('default')
+     	*   .mockReturnValueOnce('first call')
+     	*   .mockReturnValueOnce('second call')
+     	*
+     	* // 'first call', 'second call', 'default'
+     	* console.log(myMockFn(), myMockFn(), myMockFn())
+     	*/
+    	mockReturnValueOnce(value: ReturnType<T>): this;
+    	/**
+     	* Accepts a value that will be resolved when the async function is called. TypeScript will only accept values that match the return type of the original function.
+     	* @example
+     	* const asyncMock = vi.fn().mockResolvedValue(42)
+     	* asyncMock() // Promise<42>
+     	*/
+    	mockResolvedValue(value: Awaited<ReturnType<T>>): this;
+    	/**
+     	* Accepts a value that will be resolved during the next function call. TypeScript will only accept values that match the return type of the original function. If chained, each consecutive call will resolve the specified value.
+     	* @example
+     	* const myMockFn = vi
+     	*   .fn()
+     	*   .mockResolvedValue('default')
+     	*   .mockResolvedValueOnce('first call')
+     	*   .mockResolvedValueOnce('second call')
+     	*
+     	* // Promise<'first call'>, Promise<'second call'>, Promise<'default'>
+     	* console.log(myMockFn(), myMockFn(), myMockFn())
+     	*/
+    	mockResolvedValueOnce(value: Awaited<ReturnType<T>>): this;
+    	/**
+     	* Accepts an error that will be rejected when async function is called.
+     	* @example
+     	* const asyncMock = vi.fn().mockRejectedValue(new Error('Async error'))
+     	* await asyncMock() // throws Error<'Async error'>
+     	*/
+    	mockRejectedValue(error: unknown): this;
+    	/**
+     	* Accepts a value that will be rejected during the next function call. If chained, each consecutive call will reject the specified value.
+     	* @example
+     	* const asyncMock = vi
+     	*   .fn()
+     	*   .mockResolvedValueOnce('first call')
+     	*   .mockRejectedValueOnce(new Error('Async error'))
+     	*
+     	* await asyncMock() // first call
+     	* await asyncMock() // throws Error<'Async error'>
+     	*/
+    	mockRejectedValueOnce(error: unknown): this;
+}
+
+declare interface MockInstance_2<T extends FunctionLike = FunctionLike> {
+    _isMockFunction: true;
+    /**
+     * Returns the mock name string set by calling `.mockName()`
+     */
+    getMockName(): string;
+    /**
+     * Sets the mock name for this mock.
+     */
+    mockName(name: string): this;
+    mock: MockContext_2<T>;
+    /**
+     * Clears all information about every call.
+     */
+    mockClear(): this;
+    /**
+     * Does what `mockClear` does and resets inner implementation to the original function.
+     */
+    mockReset(): this;
+    /**
+     * Does what `mockReset` does and restores original descriptors of spied-on objects.
+     */
+    mockRestore(): void;
+    /**
+     * Returns current mock implementation if there is one.
+     */
+    getMockImplementation(): NormalizedProcedure_2<T> | undefined;
+    /**
+     * Accepts a function that should be used as the implementation of the mock.
+     */
+    mockImplementation(fn: NormalizedProcedure_2<T>): this;
+    /**
+     * Accepts a function that will be used as an implementation of the mock for one call to the mocked function.
+     */
+    mockImplementationOnce(fn: NormalizedProcedure_2<T>): this;
+    /**
+     * Accepts a function which should be temporarily used as the implementation of the mock while the callback is being executed.
+     */
+    withImplementation<T2>(fn: NormalizedProcedure_2<T>, callback: () => T2): T2 extends Promise<unknown> ? Promise<void> : void;
+    /**
+     * Return the `this` context from the method without invoking the actual implementation.
+     */
+    mockReturnThis(): this;
+    /**
+     * Accepts a value that will be returned whenever the mock function is called.
+     */
+    mockReturnValue(value: ReturnType<T>): this;
+    /**
+     * Accepts a value that will be returned for one call to the mock function.
+     */
+    mockReturnValueOnce(value: ReturnType<T>): this;
+    /**
+     * Accepts a value that will be resolved when the async function is called.
+     */
+    mockResolvedValue(value: Awaited<ReturnType<T>>): this;
+    /**
+     * Accepts a value that will be resolved during the next function call.
+     */
+    mockResolvedValueOnce(value: Awaited<ReturnType<T>>): this;
+    /**
+     * Accepts an error that will be rejected when async function is called.
+     */
+    mockRejectedValue(error: unknown): this;
+    /**
+     * Accepts a value that will be rejected during the next function call.
+     */
+    mockRejectedValueOnce(error: unknown): this;
+}
+
+declare type MockResult<T> = MockResultReturn<T> | MockResultThrow | MockResultIncomplete;
+
+declare type MockResult_2<T> = MockResultReturn_2<T> | MockResultThrow_2 | MockResultIncomplete_2;
+
+declare interface MockResultIncomplete {
+    	type: "incomplete";
+    	value: undefined;
+}
+
+declare interface MockResultIncomplete_2 {
+    type: 'incomplete';
+    value: undefined;
+}
+
+declare interface MockResultReturn<T> {
+    	type: "return";
+    	/**
+     	* The value that was returned from the function. If function returned a Promise, then this will be a resolved value.
+     	*/
+    	value: T;
+}
+
+declare interface MockResultReturn_2<T> {
+    type: 'return';
+    /**
+     * The value that was returned from the function. If function returned a Promise, then this will be a resolved value.
+     */
+    value: T;
+}
+
+declare interface MockResultThrow {
+    	type: "throw";
+    	/**
+     	* An error that was thrown during function execution.
+     	*/
+    	value: any;
+}
+
+declare interface MockResultThrow_2 {
+    type: 'throw';
+    /**
+     * An error that was thrown during function execution.
+     */
+    value: any;
+}
+
+declare type MockSettledResult<T> = MockSettledResultFulfilled<T> | MockSettledResultRejected;
+
+declare type MockSettledResult_2<T> = MockSettledResultFulfilled_2<T> | MockSettledResultRejected_2;
+
+declare interface MockSettledResultFulfilled<T> {
+    	type: "fulfilled";
+    	value: T;
+}
+
+declare interface MockSettledResultFulfilled_2<T> {
+    type: 'fulfilled';
+    value: T;
+}
+
+declare interface MockSettledResultRejected {
+    	type: "rejected";
+    	value: any;
+}
+
+declare interface MockSettledResultRejected_2 {
+    type: 'rejected';
+    value: any;
+}
+
+declare type NamesIndex = number;
+
+declare type NestedProjectConfig = {
+    projects: (ProjectConfig | string)[];
+};
+
+declare interface NewPlugin {
+    	serialize: (val: any, config: Config, indentation: string, depth: number, refs: Refs, printer: Printer) => string;
+    	test: Test;
+}
+
+declare interface Node_2 {
+    isRoot(): boolean;
+    visit(visitor: Visitor, state: any): void;
+}
+
+declare type NormalizedConfig = Required<Omit<RstestConfig, OptionalKeys | 'pool' | 'projects' | 'coverage' | 'setupFiles' | 'globalSetup' | 'exclude'>> & Partial<Pick<RstestConfig, OptionalKeys>> & {
+    pool: RstestPoolOptions;
+    coverage: NormalizedCoverageOptions;
+    setupFiles: string[];
+    globalSetup: string[];
+    exclude: {
+        patterns: string[];
+        override?: boolean;
+    };
+};
+
+export declare type NormalizedCoverageOptions = Required<Omit<CoverageOptions, 'thresholds' | 'include'>> & {
+    thresholds?: CoverageThresholds;
+    include?: string[];
+};
+
+declare type NormalizedFixture = {
+    isFn: boolean;
+    deps?: string[];
+    value: FixtureFn<any, any, any> | any;
+    options?: FixtureOptions;
+};
+
+declare type NormalizedFixtures = Record<string, NormalizedFixture>;
+
+declare type NormalizedProcedure<T extends Procedure> = (...args: Parameters<T>) => ReturnType<T>;
+
+declare type NormalizedProcedure_2<T extends Procedure_2> = (...args: Parameters<T>) => ReturnType<T>;
+
+declare type NormalizedProjectConfig = Required<Omit<NormalizedConfig, OptionalKeys | 'projects' | 'reporters' | 'pool' | 'setupFiles' | 'globalSetup'>> & Pick<NormalizedConfig, OptionalKeys> & {
+    setupFiles: string[];
+    globalSetup: string[];
+};
+
+declare interface OldPlugin {
+    	print: (val: unknown, print: Print, indent: Indent, options: PluginOptions, colors: Colors) => string;
+    	test: Test;
+}
+
+export declare const onTestFailed: Rstest['onTestFailed'];
+
+declare type OnTestFailedHandler = (ctx: TestContext) => MaybePromise<void>;
+
+export declare const onTestFinished: Rstest['onTestFinished'];
+
+declare type OnTestFinishedHandler = (ctx: TestContext) => MaybePromise<void>;
+
+declare type OptionalKeys = 'testNamePattern' | 'plugins' | 'source' | 'resolve' | 'output' | 'performance' | 'tools' | 'dev' | 'onConsoleLog' | 'chaiConfig' | 'resolveSnapshotPath' | 'extends';
+
+declare interface Options {
+    logger: {
+        outputStream: Writable;
+        errorStream: Writable;
+        getColumns: () => number;
+    };
+    interval?: number;
+    getWindow: () => string[];
+}
+
+declare type OptionsReceived = PrettyFormatOptions;
+
+declare interface ParsedStack {
+    	method: string;
+    	file: string;
+    	line: number;
+    	column: number;
+}
+
+declare type Plugin_2 = NewPlugin | OldPlugin;
+
+declare interface PluginOptions {
+    	edgeSpacing: string;
+    	min: boolean;
+    	spacing: string;
+}
+
+declare type Plugins = Array<Plugin_2>;
+
+declare interface PrettyFormatOptions {
+    	callToJSON?: boolean;
+    	escapeRegex?: boolean;
+    	escapeString?: boolean;
+    	highlight?: boolean;
+    	indent?: number;
+    	maxDepth?: number;
+    	maxWidth?: number;
+    	min?: boolean;
+    	printBasicPrototype?: boolean;
+    	printFunctionName?: boolean;
+    	compareKeys?: CompareKeys;
+    	plugins?: Plugins;
+}
+
+declare type Print = (arg0: unknown) => string;
+
+declare function printDiffOrStringify(received: unknown, expected: unknown, options?: DiffOptions): string | undefined;
+
+declare type Printer = (val: unknown, config: Config, indentation: string, depth: number, refs: Refs, hasCalledToJSON?: boolean) => string;
+
+declare function printExpected(value: unknown): string;
+
+declare function printReceived(object: unknown): string;
+
+declare function printWithType<T>(name: string, value: T, print: (value: T) => string): string;
+
+declare type Procedure = (...args: any[]) => any;
+
+declare type Procedure_2 = (...args: any[]) => any;
+
+declare type Project = {
+    config: RstestConfig;
+    configFilePath?: string;
+};
+
+export declare type ProjectConfig = Omit<RstestConfig, 'projects' | 'reporters' | 'pool' | 'isolate' | 'coverage' | 'resolveSnapshotPath' | 'onConsoleLog' | 'hideSkippedTests' | 'bail'>;
+
+declare type ProjectConfigAsyncFn = () => Promise<ProjectConfig | NestedProjectConfig>;
+
+declare type ProjectConfigSyncFn = () => ProjectConfig | NestedProjectConfig;
+
+declare type ProjectContext = {
+    name: string;
+    environmentName: string;
+    /** The root path of current project. */
+    rootPath: string;
+    /** Whether to output es module. */
+    outputModule: boolean;
+    configFilePath?: string;
+    normalizedConfig: NormalizedProjectConfig;
+    _globalSetups: boolean;
+};
+
+declare interface ProjectOptions {
+    projectRoot: string;
+}
+
+declare type Promisify<O> = { [K in keyof O] : O[K] extends (...args: infer A) => infer R ? Promisify<O[K]> & ((...args: A) => Promise<R>) : O[K] };
+
+declare type Promisify_2<O> = {
+    [K in keyof O]: O[K] extends (...args: infer A) => infer R ? Promisify_2<O[K]> & ((...args: A) => Promise<R>) : O[K];
+};
+
+declare type PromisifyAssertion<T> = Promisify<Assertion_2<T>>;
+
+declare type PromisifyAssertion_2<T> = Promisify_2<Assertion<T>>;
+
+declare interface Range_2 {
+    start: Location_3;
+    end: Location_3;
+}
+
+declare interface RawMatcherFn<
+	T extends MatcherState = MatcherState,
+	E extends Array<any> = Array<any>
+> {
+    	(this: T, received: any, ...expected: E): ExpectationResult;
+}
+
+declare interface RawSnapshotInfo {
+    	file: string;
+    	readonly?: boolean;
+    	content?: string;
+}
+
+declare type Refs = Array<unknown>;
+
+declare class ReportBase {
+    constructor(options?: Partial<ReportBaseOptions>);
+    execute(context: Context): void;
+}
+
+declare interface ReportBaseOptions {
+    summarizer: Summarizers;
+}
+
+export declare interface Reporter {
+    /**
+     * Called before test file run.
+     */
+    onTestFileStart?: (test: TestFileInfo) => void;
+    /**
+     * Called after tests in file collected.
+     */
+    onTestFileReady?: (test: TestFileInfo) => void;
+    /**
+     * Called when the test file has finished running.
+     */
+    onTestFileResult?: (test: TestFileResult) => void;
+    /**
+     * Called before running the test suite.
+     */
+    onTestSuiteStart?: (test: TestSuiteInfo) => void;
+    /**
+     * Called when the suite has finished running or was just skipped.
+     *
+     * `result.errors` contains only suite hooks errors
+     */
+    onTestSuiteResult?: (result: TestResult) => void;
+    /**
+     * Called when the test has finished running or was just skipped.
+     */
+    onTestCaseResult?: (result: TestResult) => void;
+    /**
+     * Called before running the test case.
+     */
+    onTestCaseStart?: (test: TestCaseInfo) => void;
+    /**
+     * Called after all tests have finished running.
+     */
+    onTestRunEnd?: ({ results, testResults, duration, getSourcemap, snapshotSummary, unhandledErrors, }: {
+        results: TestFileResult[];
+        testResults: TestResult[];
+        duration: Duration;
+        getSourcemap: GetSourcemap;
+        unhandledErrors?: Error[];
+        snapshotSummary: SnapshotSummary;
+        filterRerunTestPaths?: string[];
+    }) => MaybePromise<void>;
+    /**
+     * Called when console log is calling.
+     */
+    onUserConsoleLog?: (log: UserConsoleLog) => void;
+    /**
+     * Called when rstest exit abnormally
+     */
+    onExit?: () => void;
+}
+
+declare const reportersMap: {
+    default: typeof DefaultReporter;
+    verbose: typeof VerboseReporter;
+    'github-actions': typeof GithubActionsReporter;
+    junit: typeof JUnitReporter;
+};
+
+declare type ReporterWithOptions<Name extends BuiltInReporterNames = BuiltInReporterNames> = Name extends keyof BuiltinReporterOptions ? [Name, Partial<BuiltinReporterOptions[Name]>] : [Name, Record<string, unknown>];
+
+declare interface ReportOptions {
+    clover: CloverOptions;
+    cobertura: CoberturaOptions;
+    "html-spa": HtmlSpaOptions;
+    html: HtmlOptions;
+    json: JsonOptions;
+    "json-summary": JsonSummaryOptions;
+    lcov: LcovOptions;
+    lcovonly: LcovOnlyOptions;
+    none: never;
+    teamcity: TeamcityOptions;
+    text: TextOptions;
+    "text-lcov": TextLcovOptions;
+    "text-summary": TextSummaryOptions;
+}
+
+declare type ReportWithOptions<Name extends keyof ReportOptions = keyof ReportOptions> = Name extends keyof ReportOptions ? [Name, Partial<ReportOptions[Name]>] : [Name, Record<string, unknown>];
+
+declare type Ro<T> = T extends Array<infer V> ? V[] | Readonly<V[]> | RoArray<V> | Readonly<RoArray<V>> : T extends object ? T | Readonly<T> | RoObject<T> | Readonly<RoObject<T>> : T;
+
+declare type RoArray<T> = Ro<T>[];
+
+declare type RoObject<T> = {
+    [K in keyof T]: T[K] | Ro<T[K]>;
+};
+
+export declare const rs: RstestUtilities;
+
+export { RsbuildPlugin }
+
+export declare type Rstest = RunnerAPI & {
+    expect: Expect;
+    assert: typeof assert_2;
+    rstest: RstestUtilities;
+    rs: RstestUtilities;
+};
+
+export declare const rstest: RstestUtilities;
+
+export declare type RstestCommand = 'watch' | 'run' | 'list';
+
+export declare interface RstestConfig {
+    /**
+     * Extend configuration from adapters
+     */
+    extends?: ExtendConfigFn | ExtendConfig;
+    /**
+     * Project root
+     *
+     * @default process.cwd()
+     */
+    root?: string;
+    /**
+     * Run tests from one or more projects.
+     */
+    projects?: TestProject[];
+    /**
+     * Project name
+     *
+     * @default rstest
+     */
+    name?: string;
+    /**
+     * A list of glob patterns that match your test files.
+     *
+     * @default ['**\/*.{test,spec}.?(c|m)[jt]s?(x)']
+     */
+    include?: string[];
+    /**
+     * A list of glob patterns that should be excluded from your test files.
+     *
+     * @default ['**\/node_modules/**', '**\/dist/**']
+     */
+    exclude?: string[] | {
+        patterns: string[];
+        /**
+         * override default exclude patterns
+         * @default false
+         */
+        override?: boolean;
+    };
+    /**
+     * A list of glob patterns that match your in-source test files
+     *
+     * @default []
+     */
+    includeSource?: string[];
+    /**
+     * Path to setup files. They will be run before each test file.
+     */
+    setupFiles?: string[] | string;
+    /**
+     * Path to global setup files, relative to project root.
+     * A global setup file can either export named functions `setup` and `teardown`
+     * or a `default` function that returns a teardown function.
+     */
+    globalSetup?: string[] | string;
+    /**
+     * Retry the test specific number of times if it fails.
+     * @default 0
+     */
+    retry?: number;
+    /**
+     * Pass when no tests are found.
+     *
+     * @default false
+     */
+    passWithNoTests?: boolean;
+    /**
+     * Pool used to run tests in.
+     */
+    pool?: RstestPoolType | RstestPoolOptions;
+    /**
+     * Run tests in an isolated environment
+     *
+     * @default true
+     */
+    isolate?: boolean;
+    /**
+     * Provide global APIs
+     *
+     * @default false
+     */
+    globals?: boolean;
+    /**
+     * The environment that will be used for testing
+     *
+     * @default 'node'
+     */
+    testEnvironment?: 'node' | 'jsdom' | 'happy-dom';
+    /**
+     * Stop running tests after n failures.
+     * Set to 0 to run all tests regardless of failures.
+     *
+     * @default 0
+     */
+    bail?: number;
+    /**
+     * print console traces when calling any console method.
+     *
+     * @default false
+     */
+    printConsoleTrace?: boolean;
+    /**
+     * Disable console intercept. `onConsoleLog` & `printConsoleTrace` configuration will not take effect.
+     *
+     * @default false
+     */
+    disableConsoleIntercept?: boolean;
+    /**
+     * Update snapshot files. Will update all changed snapshots and delete obsolete ones.
+     *
+     * @default false
+     */
+    update?: boolean;
+    /**
+     * Custom reporter for output.
+     * @default ['default']
+     */
+    reporters?: Reporter | BuiltInReporterNames | (Reporter | BuiltInReporterNames | [BuiltInReporterNames] | ReporterWithOptions)[];
+    /**
+     * Hide skipped tests logs.
+     *
+     * @default false
+     */
+    hideSkippedTests?: boolean;
+    /**
+     * Run only tests with a name that matches the regex.
+     */
+    testNamePattern?: string | RegExp;
+    /**
+     * Timeout of a test in milliseconds.
+     * @default 5000
+     */
+    testTimeout?: number;
+    /**
+     * Timeout of hook in milliseconds.
+     * @default 10000
+     */
+    hookTimeout?: number;
+    /**
+     * Automatically clear mock calls, instances, contexts and results before every test.
+     * @default false
+     */
+    clearMocks?: boolean;
+    /**
+     * Automatically reset mock state before every test.
+     * @default false
+     */
+    resetMocks?: boolean;
+    /**
+     * Automatically restore mock state and implementation before every test.
+     * @default false
+     */
+    restoreMocks?: boolean;
+    /**
+     * The number of milliseconds after which a test or suite is considered slow and reported as such in the results.
+     * @default 300
+     */
+    slowTestThreshold?: number;
+    /**
+     * Restores all global variables that were changed with `rstest.stubGlobal` before every test.
+     * @default false
+     */
+    unstubGlobals?: boolean;
+    /**
+     * Restores all `process.env` values that were changed with `rstest.stubEnv` before every test.
+     * @default false
+     */
+    unstubEnvs?: boolean;
+    /**
+     * Maximum number of concurrent tests
+     * @default 5
+     */
+    maxConcurrency?: number;
+    /**
+     * Log heap usage after each test
+     * @default false
+     */
+    logHeapUsage?: boolean;
+    /**
+     * Custom handler for console log in tests
+     */
+    onConsoleLog?: (content: string) => boolean | void;
+    /** Format snapshot output */
+    snapshotFormat?: SnapshotFormat;
+    /**
+     * Resolve custom snapshot path
+     */
+    resolveSnapshotPath?: (testPath: string, snapExtension: string) => string;
+    /**
+     * Custom environment variables available on `process.env` during tests.
+     */
+    env?: Partial<NodeJS.ProcessEnv>;
+    /**
+     * Coverage options
+     */
+    coverage?: CoverageOptions;
+    /**
+     * chai configuration options
+     */
+    chaiConfig?: ChaiConfig;
+    /**
+     * Include `location` property in `TestInfo` received by reporters
+     */
+    includeTaskLocation?: boolean;
+    plugins?: RsbuildConfig['plugins'];
+    source?: Pick<NonNullable<RsbuildConfig['source']>, 'define' | 'tsconfigPath' | 'decorators' | 'include' | 'exclude'>;
+    performance?: Pick<NonNullable<RsbuildConfig['performance']>, 'bundleAnalyze'>;
+    dev?: Pick<NonNullable<RsbuildConfig['dev']>, 'writeToDisk'>;
+    output?: Pick<NonNullable<RsbuildConfig['output']>, 'cssModules' | 'externals' | 'cleanDistPath' | 'module'>;
+    resolve?: RsbuildConfig['resolve'];
+    tools?: Pick<NonNullable<RsbuildConfig['tools']>, 'rspack' | 'swc' | 'bundlerChain'>;
+}
+
+export declare type RstestConfigAsyncFn = () => Promise<RstestConfig>;
+
+export declare type RstestConfigExport = RstestConfig | RstestConfigSyncFn | RstestConfigAsyncFn;
+
+export declare type RstestConfigSyncFn = () => RstestConfig;
+
+declare type RstestContext = {
+    /** The Rstest core version. */
+    version: string;
+    /** The root path of rstest. */
+    rootPath: string;
+    /** The original Rstest config passed from the createRstest method. */
+    originalConfig: Readonly<RstestConfig>;
+    /** The normalized Rstest config. */
+    normalizedConfig: NormalizedConfig;
+    /** filter by a filename regex pattern */
+    fileFilters?: string[];
+    /** The config file path. */
+    configFilePath?: string;
+    /**
+     * Run tests from one or more projects.
+     */
+    projects: ProjectContext[];
+    /**
+     * The test state
+     */
+    testState: RstestTestState;
+    /**
+     * The command type.
+     *
+     * - run: `rstest`
+     * - dev: `rstest dev` or watch mode
+     * - list: `rstest list`
+     */
+    command: RstestCommand;
+    reporters: Reporter[];
+    snapshotManager: SnapshotManager;
+    stateManager: TestStateManager;
+};
+
+declare type RstestInstance = {
+    context: RstestContext;
+    runTests: () => Promise<void>;
+    listTests: (options: ListCommandOptions) => Promise<ListCommandResult[]>;
+};
+
+declare type RstestPoolOptions = {
+    /** Pool used to run tests in. */
+    type?: RstestPoolType;
+    /** Maximum number or percentage of workers to run tests in. */
+    maxWorkers?: number | string;
+    /** Minimum number or percentage of workers to run tests in. */
+    minWorkers?: number | string;
+    /** Pass additional arguments to node process in the child processes. */
+    execArgv?: string[];
+};
+
+declare type RstestPoolType = 'forks';
+
+declare type RstestTestState = {
+    getRunningModules: () => RunningModules;
+    getTestModules: () => TestFileResult[];
+    /** Get the test files paths. return `undefined` in watch mode. */
+    getTestFiles: () => string[] | undefined;
+};
+
+export declare interface RstestUtilities {
+    /**
+     * Creates a spy on a function.
+     */
+    fn: MockFn;
+    /**
+     * Creates a spy on a method of an object
+     */
+    spyOn: <T extends Record<string, any>, K extends keyof T>(obj: T, methodName: K, accessType?: 'get' | 'set') => MockInstance_2<T[K]>;
+    /**
+     * Determines if the given function is a mocked function.
+     */
+    isMockFunction: (fn: any) => fn is MockInstance_2;
+    /**
+     * Calls `.mockClear()` on all spies.
+     */
+    clearAllMocks: () => RstestUtilities;
+    /**
+     * Calls `.mockReset()` on all spies.
+     */
+    resetAllMocks: () => RstestUtilities;
+    /**
+     * Calls `.mockRestore()` on all spies.
+     */
+    restoreAllMocks: () => RstestUtilities;
+    /**
+     * Mock a module
+     */
+    mock<T = unknown>(moduleName: string | Promise<T>, moduleFactory?: MockFactory<T>): void;
+    /**
+     * Mock a module
+     */
+    mockRequire: <T = unknown>(moduleName: string, moduleFactory?: () => T) => void;
+    /**
+     * Mock a module, not hoisted.
+     */
+    doMock<T = unknown>(moduleName: string | Promise<T>, moduleFactory?: MockFactory<T>): void;
+    /**
+     * Mock a module, not hoisted.
+     */
+    doMockRequire: <T = unknown>(moduleName: string, moduleFactory?: () => T) => void;
+    /**
+     * Hoisted mock function.
+     */
+    hoisted: <T = unknown>(fn: () => T) => T;
+    /**
+     * Removes module from the mocked registry.
+     */
+    unmock: (path: string) => void;
+    /**
+     * Removes module from the mocked registry, not hoisted.
+     */
+    doUnmock: (path: string) => void;
+    /**
+     * Imports a module with all of its properties (including nested properties) mocked.
+     */
+    importMock: <T = Record<string, unknown>>(path: string) => Promise<T>;
+    /**
+     * Imports a module with all of its properties (including nested properties) mocked.
+     */
+    requireMock: <T = Record<string, unknown>>(path: string) => T;
+    /**
+     * Import and return the actual module instead of a mock, bypassing all checks on whether the module should receive a mock implementation or not.
+     */
+    importActual: <T = Record<string, unknown>>(path: string) => Promise<T>;
+    /**
+     * Require and return the actual module instead of a mock, bypassing all checks on whether the module should receive a mock implementation or not.
+     */
+    requireActual: <T = Record<string, unknown>>(path: string) => T;
+    /**
+     * Resets modules registry by clearing the cache of all modules.
+     */
+    resetModules: () => RstestUtilities;
+    /**
+     * Changes the value of environmental variable on `process.env`.
+     */
+    stubEnv: (name: string, value: string | undefined) => RstestUtilities;
+    /**
+     * Restores all `process.env` values that were changed with `rstest.stubEnv`.
+     */
+    unstubAllEnvs: () => RstestUtilities;
+    /**
+     * Changes the value of global variable.
+     */
+    stubGlobal: (name: string | number | symbol, value: unknown) => RstestUtilities;
+    /**
+     * Restores all global variables that were changed with `rstest.stubGlobal`.
+     */
+    unstubAllGlobals: () => RstestUtilities;
+    /**
+     * Update runtime config for the current test.
+     */
+    setConfig: (config: RuntimeOptions) => void;
+    /**
+     * get runtime config for the current test.
+     */
+    getConfig: () => RuntimeOptions;
+    /**
+     * Reset runtime config that were changed with `rstest.setConfig`.
+     */
+    resetConfig: () => void;
+    /**
+     * Mocks timers using `@sinonjs/fake-timers`.
+     */
+    useFakeTimers: (config?: FakeTimerInstallOpts) => RstestUtilities;
+    useRealTimers: () => RstestUtilities;
+    isFakeTimers: () => boolean;
+    /**
+     * Set the current system time used by fake timers.
+     */
+    setSystemTime: (now?: number | Date) => RstestUtilities;
+    getRealSystemTime: () => number;
+    runAllTicks: () => RstestUtilities;
+    runAllTimers: () => RstestUtilities;
+    runAllTimersAsync: () => Promise<RstestUtilities>;
+    runOnlyPendingTimers: () => RstestUtilities;
+    runOnlyPendingTimersAsync: () => Promise<RstestUtilities>;
+    advanceTimersByTime: (ms: number) => RstestUtilities;
+    advanceTimersByTimeAsync: (ms: number) => Promise<RstestUtilities>;
+    advanceTimersToNextTimer: (steps?: number) => RstestUtilities;
+    advanceTimersToNextTimerAsync: (steps?: number) => Promise<RstestUtilities>;
+    advanceTimersToNextFrame: () => RstestUtilities;
+    /**
+     * Returns the number of fake timers still left to run.
+     */
+    getTimerCount: () => number;
+    /**
+     * Removes all timers that are scheduled to run.
+     */
+    clearAllTimers: () => RstestUtilities;
+}
+
+export declare function runCLI(): Promise<void>;
+
+declare type RunnerAPI = {
+    describe: Describe;
+    it: TestAPIs;
+    test: TestAPIs;
+    beforeAll: (fn: BeforeAllListener, timeout?: number) => MaybePromise<void>;
+    afterAll: (fn: AfterAllListener, timeout?: number) => MaybePromise<void>;
+    beforeEach: (fn: BeforeEachListener, timeout?: number) => MaybePromise<void>;
+    afterEach: (fn: AfterEachListener, timeout?: number) => MaybePromise<void>;
+    onTestFinished: (fn: OnTestFinishedHandler, timeout?: number) => void;
+    onTestFailed: (fn: OnTestFailedHandler, timeout?: number) => void;
+};
+
+declare type RunningModules = Map<string, {
+    runningTests: TestCaseInfo[];
+    results: TestResult[];
+}>;
+
+declare type RuntimeConfig = Pick<RstestContext['normalizedConfig'], 'testTimeout' | 'testNamePattern' | 'globals' | 'passWithNoTests' | 'retry' | 'clearMocks' | 'resetMocks' | 'restoreMocks' | 'unstubEnvs' | 'unstubGlobals' | 'maxConcurrency' | 'printConsoleTrace' | 'disableConsoleIntercept' | 'testEnvironment' | 'isolate' | 'hookTimeout' | 'coverage' | 'snapshotFormat' | 'env' | 'logHeapUsage' | 'bail' | 'chaiConfig' | 'includeTaskLocation'>;
+
+declare type RuntimeOptions = Partial<Pick<RuntimeConfig, 'testTimeout' | 'hookTimeout' | 'clearMocks' | 'resetMocks' | 'restoreMocks' | 'maxConcurrency' | 'retry'>>;
+
+declare interface SaveStatus {
+    	deleted: boolean;
+    	saved: boolean;
+}
+
+declare interface SnapshotEnvironment {
+    	getVersion: () => string;
+    	getHeader: () => string;
+    	resolvePath: (filepath: string) => Promise<string>;
+    	resolveRawPath: (testPath: string, rawPath: string) => Promise<string>;
+    	saveSnapshotFile: (filepath: string, snapshot: string) => Promise<void>;
+    	readSnapshotFile: (filepath: string) => Promise<string | null>;
+    	removeSnapshotFile: (filepath: string) => Promise<void>;
+    	processStackTrace?: (stack: ParsedStack) => ParsedStack;
+}
+
+declare type SnapshotFormat = Omit<NonNullable<SnapshotStateOptions['snapshotFormat']>, 'plugins' | 'compareKeys'>;
+
+declare class SnapshotManager {
+    	options: Omit<SnapshotStateOptions, "snapshotEnvironment">;
+    	summary: SnapshotSummary;
+    	extension: string;
+    	constructor(options: Omit<SnapshotStateOptions, "snapshotEnvironment">);
+    	clear(): void;
+    	add(result: SnapshotResult): void;
+    	resolvePath<T = any>(testPath: string, context?: T): string;
+    	resolveRawPath(testPath: string, rawPath: string): string;
+}
+
+declare interface SnapshotMatcher<T> {
+    <U extends {
+        [P in keyof T]: any;
+    }>(snapshot: Partial<U>, message?: string): void;
+    (message?: string): void;
+}
+
+declare interface SnapshotMatchOptions {
+    	testId: string;
+    	testName: string;
+    	received: unknown;
+    	key?: string;
+    	inlineSnapshot?: string;
+    	isInline: boolean;
+    	error?: Error;
+    	rawSnapshot?: RawSnapshotInfo;
+}
+
+declare interface SnapshotResult {
+    	filepath: string;
+    	added: number;
+    	fileDeleted: boolean;
+    	matched: number;
+    	unchecked: number;
+    	uncheckedKeys: Array<string>;
+    	unmatched: number;
+    	updated: number;
+}
+
+declare interface SnapshotReturnOptions {
+    	actual: string;
+    	count: number;
+    	expected?: string;
+    	key: string;
+    	pass: boolean;
+}
+
+declare class SnapshotState {
+    	testFilePath: string;
+    	snapshotPath: string;
+    	private _counters;
+    	private _dirty;
+    	private _updateSnapshot;
+    	private _snapshotData;
+    	private _initialData;
+    	private _inlineSnapshots;
+    	private _inlineSnapshotStacks;
+    	private _testIdToKeys;
+    	private _rawSnapshots;
+    	private _uncheckedKeys;
+    	private _snapshotFormat;
+    	private _environment;
+    	private _fileExists;
+    	expand: boolean;
+    	// getter/setter for jest-image-snapshot compat
+    	// https://github.com/vitest-dev/vitest/issues/7322
+    	private _added;
+    	private _matched;
+    	private _unmatched;
+    	private _updated;
+    	get added(): CounterMap<string>;
+    	set added(value: CounterMap<string>);
+    	get matched(): CounterMap<string>;
+    	set matched(value: CounterMap<string>);
+    	get unmatched(): CounterMap<string>;
+    	set unmatched(value: CounterMap<string>);
+    	get updated(): CounterMap<string>;
+    	set updated(value: CounterMap<string>);
+    	private constructor();
+    	static create(testFilePath: string, options: SnapshotStateOptions): Promise<SnapshotState>;
+    	get environment(): SnapshotEnvironment;
+    	markSnapshotsAsCheckedForTest(testName: string): void;
+    	clearTest(testId: string): void;
+    	protected _inferInlineSnapshotStack(stacks: ParsedStack[]): ParsedStack | null;
+    	private _addSnapshot;
+    	save(): Promise<SaveStatus>;
+    	getUncheckedCount(): number;
+    	getUncheckedKeys(): Array<string>;
+    	removeUncheckedKeys(): void;
+    	match({ testId, testName, received, key, inlineSnapshot, isInline, error, rawSnapshot }: SnapshotMatchOptions): SnapshotReturnOptions;
+    	pack(): Promise<SnapshotResult>;
+}
+
+declare interface SnapshotStateOptions {
+    	updateSnapshot: SnapshotUpdateState;
+    	snapshotEnvironment: SnapshotEnvironment;
+    	expand?: boolean;
+    	snapshotFormat?: OptionsReceived;
+    	resolveSnapshotPath?: (path: string, extension: string, context?: any) => string;
+}
+
+declare interface SnapshotSummary {
+    	added: number;
+    	didUpdate: boolean;
+    	failure: boolean;
+    	filesAdded: number;
+    	filesRemoved: number;
+    	filesRemovedList: Array<string>;
+    	filesUnmatched: number;
+    	filesUpdated: number;
+    	matched: number;
+    	total: number;
+    	unchecked: number;
+    	uncheckedKeysByFile: Array<UncheckedSnapshot>;
+    	unmatched: number;
+    	updated: number;
+}
+
+declare type SnapshotUpdateState = "all" | "new" | "none";
+
+declare type SourceColumn = number;
+
+declare type SourceLine = number;
+
+declare abstract class SourceMap {
+    version: SourceMapV3['version'];
+    file: SourceMapV3['file'];
+    names: SourceMapV3['names'];
+    sourceRoot: SourceMapV3['sourceRoot'];
+    sources: SourceMapV3['sources'];
+    sourcesContent: SourceMapV3['sourcesContent'];
+    resolvedSources: SourceMapV3['sources'];
+    ignoreList: SourceMapV3['ignoreList'];
+}
+
+declare type SourceMapInput = string | EncodedSourceMapXInput | DecodedSourceMapXInput | TraceMap;
+
+declare type SourceMapSegment = [GeneratedColumn] | [GeneratedColumn, SourcesIndex, SourceLine, SourceColumn] | [GeneratedColumn, SourcesIndex, SourceLine, SourceColumn, NamesIndex];
+
+declare interface SourceMapV3 {
+    file?: string | null;
+    names: string[];
+    sourceRoot?: string;
+    sources: (string | null)[];
+    sourcesContent?: (string | null)[];
+    version: 3;
+    ignoreList?: number[];
+}
+
+declare type SourcesIndex = number;
+
+declare class StatusRenderer {
+    private rootPath;
+    private renderer;
+    private startTime;
+    private testState;
+    constructor(rootPath: string, state: RstestTestState, logger?: Options['logger']);
+    getContent(): string[];
+    onTestFileStart(): void;
+    onTestCaseResult(): void;
+    onTestFileResult(): void;
+    clear(): void;
+}
+
+declare function stringify(object: unknown, maxDepth?: number, { maxLength,...options }?: StringifyOptions): string;
+
+declare interface StringifyOptions extends PrettyFormatOptions {
+    	maxLength?: number;
+}
+
+declare type SuiteContext = {
+    filepath: TestPath;
+};
+
+declare type Summarizers = "flat" | "nested" | "pkg" | "defaultSummarizer";
+
+/** Union type for all supported reporter types */
+declare type SupportedReporter = keyof ReportOptions | ReportWithOptions | ReportBase | CustomReporter;
+
+declare interface SyncExpectationResult {
+    	pass: boolean;
+    	message: () => string;
+    	actual?: any;
+    	expected?: any;
+}
+
+declare interface TaskResult {
+    /**
+     * State of the task. Inherits the `task.mode` during collection.
+     * When the task has finished, it will be changed to `pass` or `fail`.
+     * - **pass**: task ran successfully
+     * - **fail**: task failed
+     */
+    state: TaskState;
+    /**
+     * Errors that occurred during the task execution. It is possible to have several errors
+     * if `expect.soft()` failed multiple times or `retry` was triggered.
+     */
+    errors?: FormattedError[];
+}
+
+declare type TaskState = 'pass' | 'fail';
+
+declare interface TeamcityOptions extends FileOptions {
+    blockName: string;
+}
+
+declare type Test = (arg0: any) => boolean;
+
+export declare const test: Rstest['test'];
+
+declare type Test_2 = TestSuite | TestCase;
+
+declare type TestAPI<ExtraContext = object> = TestFn<ExtraContext> & {
+    each: TestEachFn;
+    for: TestForFn<ExtraContext>;
+    fails: TestAPI<ExtraContext>;
+    concurrent: TestAPI<ExtraContext>;
+    sequential: TestAPI<ExtraContext>;
+    only: TestAPI<ExtraContext>;
+    skip: TestAPI<ExtraContext>;
+    todo: TestAPI<ExtraContext>;
+    runIf: (condition: boolean) => TestAPI<ExtraContext>;
+    skipIf: (condition: boolean) => TestAPI<ExtraContext>;
+};
+
+declare type TestAPIs<ExtraContext = object> = TestAPI<ExtraContext> & {
+    extend: <T extends Record<string, any> = object>(fixtures: Fixtures<T, ExtraContext>) => TestAPIs<{
+        [K in keyof T | keyof ExtraContext]: K extends keyof T ? T[K] : K extends keyof ExtraContext ? ExtraContext[K] : never;
+    }>;
+};
+
+declare type TestCallbackFn<ExtraContext = object> = (context: TestContext & ExtraContext) => MaybePromise<void>;
+
+declare type TestCase = TestCaseInfo & {
+    originalFn?: (context: TestContext) => void | Promise<void>;
+    fn?: (context: TestContext) => void | Promise<void>;
+    runMode: TestRunMode;
+    fails?: boolean;
+    each?: boolean;
+    fixtures?: NormalizedFixtures;
+    concurrent?: boolean;
+    sequential?: boolean;
+    inTestEach?: boolean;
+    context: TestContext;
+    only?: boolean;
+    onFinished: OnTestFinishedHandler[];
+    onFailed: OnTestFailedHandler[];
+    /**
+     * Store promises (from async expects) to wait for them before finishing the test
+     */
+    promises?: Promise<any>[];
+    /**
+     * Store stack trace error created when test is registered, used for trace original position
+     */
+    stackTraceError: Error;
+    /**
+     * Result of the task. if `expect.soft()` failed multiple times or `retry` was triggered.
+     */
+    result?: TaskResult;
+};
+
+export declare type TestCaseInfo = {
+    testId: string;
+    testPath: TestPath;
+    name: string;
+    timeout?: number;
+    parentNames?: string[];
+    project: string;
+    startTime?: number;
+    /** Only included when `includeTaskLocation` config is enabled */
+    location?: Location_2;
+    type: 'case';
+};
+
+declare type TestContext = {
+    /**
+     * Metadata of the current test
+     */
+    task: {
+        /** Test name provided by user */
+        name: string;
+        /** Result of the current test, undefined if the test is not run yet */
+        result?: TestResult;
+    };
+    expect: Expect;
+    onTestFinished: RunnerAPI['onTestFinished'];
+    onTestFailed: RunnerAPI['onTestFailed'];
+};
+
+declare interface TestEachFn {
+    <T extends Record<string, unknown>>(cases: readonly T[]): (description: string, fn?: (param: T) => MaybePromise<void>, timeout?: number) => void;
+    <T extends readonly [unknown, ...unknown[]]>(cases: readonly T[]): (description: string, fn: (...args: [...T]) => MaybePromise<void>, timeout?: number) => void;
+    <T>(cases: readonly T[]): (description: string, fn: (...args: T[]) => MaybePromise<void>, timeout?: number) => void;
+}
+
+declare type Tester = (this: TesterContext, a: any, b: any, customTesters: Array<Tester>) => boolean | undefined;
+
+declare interface TesterContext {
+    	equals: (a: unknown, b: unknown, customTesters?: Array<Tester>, strictCheck?: boolean) => boolean;
+}
+
+export declare type TestFileInfo = {
+    testPath: TestPath;
+    tests: TestInfo[];
+};
+
+export declare type TestFileResult = TestResult & {
+    results: TestResult[];
+    snapshotResult?: SnapshotResult;
+    coverage?: CoverageMapData;
+};
+
+declare type TestFn<ExtraContext = object> = (description: string, fn?: TestCallbackFn<ExtraContext>, timeout?: number) => void;
+
+declare type TestForFn<ExtraContext = object> = <T>(cases: readonly T[]) => (description: string, fn?: (param: T, context: TestContext & ExtraContext) => MaybePromise<void>, timeout?: number) => void;
+
+export declare type TestInfo = TestCaseInfo | (TestSuiteInfo & {
+    tests: TestInfo[];
+});
+
+/** The test file original path */
+declare type TestPath = string;
+
+declare type TestProject = string | InlineProjectConfig;
+
+export declare type TestResult = {
+    testId: string;
+    status: TestResultStatus;
+    name: string;
+    testPath: TestPath;
+    parentNames?: string[];
+    duration?: number;
+    errors?: FormattedError[];
+    retryCount?: number;
+    project: string;
+    heap?: number;
+};
+
+declare type TestResultStatus = 'skip' | 'pass' | 'fail' | 'todo';
+
+declare type TestRunMode = 'run' | 'skip' | 'todo' | 'only';
+
+declare class TestStateManager {
+    runningModules: Map<string, {
+        runningTests: TestCaseInfo[];
+        results: TestResult[];
+    }>;
+    testModules: TestFileResult[];
+    testFiles: string[] | undefined;
+    onTestFileStart(testPath: string): void;
+    onTestCaseResult(result: TestResult): void;
+    onTestCaseStart(test: TestCaseInfo): void;
+    getCountOfFailedTests(): number;
+    onTestFileResult(test: TestFileResult): void;
+    reset(): void;
+}
+
+declare type TestSuite = TestSuiteInfo & {
+    runMode: TestRunMode;
+    each?: boolean;
+    inTestEach?: boolean;
+    concurrent?: boolean;
+    sequential?: boolean;
+    /** nested cases and suite could in a suite */
+    tests: Test_2[];
+    afterAllListeners?: AfterAllListener[];
+    beforeAllListeners?: BeforeAllListener[];
+    afterEachListeners?: AfterEachListener[];
+    beforeEachListeners?: BeforeEachListener[];
+};
+
+export declare type TestSuiteInfo = {
+    testId: string;
+    name: string;
+    parentNames?: string[];
+    testPath: TestPath;
+    project: string;
+    type: 'suite';
+    /** Only included when `includeTaskLocation` config is enabled */
+    location?: Location_2;
+};
+
+declare type TextLcovOptions = ProjectOptions;
+
+declare interface TextOptions extends FileOptions {
+    maxCols: number;
+    skipEmpty: boolean;
+    skipFull: boolean;
+}
+
+declare type TextSummaryOptions = FileOptions;
+
+/** check thresholds for matched files */
+declare type ThresholdGlobRecord = Record<string, CoverageThreshold & {
+    /**
+     * check thresholds per file
+     * @default false
+     */
+    perFile?: boolean;
+}>;
+
+declare interface Totals {
+    total: number;
+    covered: number;
+    skipped: number;
+    pct: number;
+}
+
+declare class TraceMap implements SourceMap {
+    version: SourceMapV3['version'];
+    file: SourceMapV3['file'];
+    names: SourceMapV3['names'];
+    sourceRoot: SourceMapV3['sourceRoot'];
+    sources: SourceMapV3['sources'];
+    sourcesContent: SourceMapV3['sourcesContent'];
+    ignoreList: SourceMapV3['ignoreList'];
+    resolvedSources: string[];
+    private _encoded;
+    private _decoded;
+    private _decodedMemo;
+    private _bySources;
+    private _bySourceMemos;
+    constructor(map: Ro<SourceMapInput>, mapUrl?: string | null);
+}
+
+declare interface Tree<N extends Node_2 = Node_2> {
+    getRoot(): N;
+    visit(visitor: Partial<Visitor<N>>, state: any): void;
+}
+
+declare interface UncheckedSnapshot {
+    	filePath: string;
+    	keys: Array<string>;
+}
+
+declare type Use<T> = (value: T) => Promise<void>;
+
+declare interface UserConsoleLog {
+    content: string;
+    name: string;
+    trace?: string;
+    testPath: TestPath;
+    type: 'stdout' | 'stderr';
+}
+
+declare class VerboseReporter extends DefaultReporter {
+    onTestFileResult(test: TestFileResult): void;
+}
+
+declare interface Visitor<N extends Node_2 = Node_2> {
+    onStart(root: N, state: any): void;
+    onSummary(root: N, state: any): void;
+    onDetail(root: N, state: any): void;
+    onSummaryEnd(root: N, state: any): void;
+    onEnd(root: N, state: any): void;
+}
+
+declare type VitestAssertion<
+	A,
+	T
+> = { [K in keyof A] : A[K] extends Chai.Assertion ? Assertion_2<T> : A[K] extends (...args: any[]) => any ? A[K] : VitestAssertion<A[K], T> } & ((type: string, message?: string) => Assertion_2);
+
+declare type Watermark = [number, number];
+
+declare interface Watermarks {
+    statements: Watermark;
+    functions: Watermark;
+    branches: Watermark;
+    lines: Watermark;
+}
+
+declare type WithAsymmetricMatcher<T> = T | AsymmetricMatcher<unknown>;
+
+declare type XInput = {
+    x_google_ignoreList?: SourceMapV3['ignoreList'];
+};
+
+declare interface XmlWriter {
+    indent(str: string): string;
+    /**
+     * writes the opening XML tag with the supplied attributes
+     */
+    openTag(name: string, attrs?: any): void;
+    /**
+     * closes an open XML tag.
+     */
+    closeTag(name: string): void;
+    /**
+     * writes a tag and its value opening and closing it at the same time
+     */
+    inlineTag(name: string, attrs?: any, content?: string): void;
+    /**
+     * closes all open tags and ends the document
+     */
+    closeAll(): void;
+}
+
+export { }

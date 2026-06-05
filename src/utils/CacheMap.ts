@@ -1,20 +1,20 @@
-import type React from 'react';
+// Framework-agnostic key type: compatible with React.Key (string|number|bigint) and Vue's VNodeKey (string|number|symbol)
+export type CacheKey = string | number | symbol | bigint;
 
 // Firefox has low performance of map.
 class CacheMap {
   maps: Record<string, number>;
 
   // Used for cache key
-  // `useMemo` no need to update if `id` not change
   id: number = 0;
 
-  diffRecords = new Map<React.Key, number>();
+  diffRecords = new Map<CacheKey, number>();
 
   constructor() {
     this.maps = Object.create(null);
   }
 
-  set(key: React.Key, value: number) {
+  set(key: CacheKey, value: number) {
     // Record prev value
     this.diffRecords.set(key, this.maps[key as string]);
 
@@ -22,7 +22,7 @@ class CacheMap {
     this.id += 1;
   }
 
-  get(key: React.Key) {
+  get(key: CacheKey) {
     return this.maps[key as string];
   }
 

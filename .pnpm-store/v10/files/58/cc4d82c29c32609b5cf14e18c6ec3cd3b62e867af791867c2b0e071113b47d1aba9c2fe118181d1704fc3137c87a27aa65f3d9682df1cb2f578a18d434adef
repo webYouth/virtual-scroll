@@ -1,0 +1,75 @@
+{
+  "name": "rsbuild-plugin-dts",
+  "version": "0.19.0",
+  "description": "Rsbuild plugin that supports emitting declaration files for TypeScript.",
+  "homepage": "https://rslib.rs",
+  "bugs": {
+    "url": "https://github.com/web-infra-dev/rslib/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/web-infra-dev/rslib.git",
+    "directory": "packages/plugin-dts"
+  },
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "compiled"
+  ],
+  "dependencies": {
+    "@ast-grep/napi": "0.37.0"
+  },
+  "devDependencies": {
+    "@microsoft/api-extractor": "^7.55.2",
+    "@rsbuild/core": "~1.7.0-beta.2",
+    "@typescript/native-preview": "7.0.0-dev.20251228.1",
+    "magic-string": "^0.30.21",
+    "picocolors": "1.1.1",
+    "prebundle": "1.6.0",
+    "rsbuild-plugin-publint": "^0.3.3",
+    "rslib": "npm:@rslib/core@0.18.6",
+    "tinyglobby": "0.2.14",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.9.3",
+    "@rslib/tsconfig": "0.0.1"
+  },
+  "peerDependencies": {
+    "@microsoft/api-extractor": "^7",
+    "@rsbuild/core": "1.x",
+    "@typescript/native-preview": "7.x",
+    "typescript": "^5"
+  },
+  "peerDependenciesMeta": {
+    "@microsoft/api-extractor": {
+      "optional": true
+    },
+    "@typescript/native-preview": {
+      "optional": true
+    },
+    "typescript": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=18.12.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "build": "rslib build",
+    "dev": "rslib build --watch",
+    "prebundle": "prebundle",
+    "test": "rstest"
+  }
+}

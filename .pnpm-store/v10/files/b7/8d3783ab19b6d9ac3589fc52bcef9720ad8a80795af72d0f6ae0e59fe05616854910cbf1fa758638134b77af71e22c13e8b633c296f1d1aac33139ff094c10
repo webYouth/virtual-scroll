@@ -1,0 +1,60 @@
+import { loadConfig, rsbuild } from "@rslib/core";
+function withRslibConfig(options = {}) {
+    return async (userConfig)=>{
+        const { configPath, modifyLibConfig, libId, cwd = process.cwd() } = options;
+        const { content: { lib, ...rawLibConfig }, filePath } = await loadConfig({
+            cwd,
+            path: configPath
+        });
+        if (!filePath) return {};
+        const libConfig = libId && Array.isArray(lib) ? lib.find((l)=>l.id === libId) || {} : {};
+        const libTestConfig = {
+            source: libConfig.source,
+            output: libConfig.output,
+            tools: libConfig.tools,
+            plugins: libConfig.plugins,
+            resolve: libConfig.resolve
+        };
+        const rslibConfig = Array.isArray(lib) ? rsbuild.mergeRsbuildConfig(rawLibConfig, libTestConfig) : rawLibConfig;
+        let libDecoratorsVersion = rslibConfig.source?.decorators?.version;
+        if (!userConfig.source?.tsconfigPath && !userConfig.source?.decorators?.version && !libDecoratorsVersion) {
+            const { loadTsconfig } = await import("./432.js").then((mod)=>({
+                    loadTsconfig: mod.loadTsconfig
+                }));
+            const tsconfig = await loadTsconfig(cwd, rslibConfig.source?.tsconfigPath);
+            if (tsconfig.compilerOptions?.experimentalDecorators) libDecoratorsVersion = 'legacy';
+        }
+        const finalLibConfig = modifyLibConfig ? modifyLibConfig(rslibConfig) : rslibConfig;
+        const { rspack, swc, bundlerChain } = finalLibConfig.tools || {};
+        const { cssModules, target } = finalLibConfig.output || {};
+        const { decorators, define, include, exclude, tsconfigPath } = finalLibConfig.source || {};
+        const rstestConfig = {
+            root: finalLibConfig.root,
+            name: libId,
+            plugins: finalLibConfig.plugins,
+            source: {
+                decorators: {
+                    version: libDecoratorsVersion,
+                    ...decorators
+                },
+                define,
+                include,
+                exclude,
+                tsconfigPath
+            },
+            resolve: finalLibConfig.resolve,
+            output: {
+                cssModules,
+                module: finalLibConfig.output?.module ?? 'cjs' !== libConfig.format
+            },
+            tools: {
+                rspack,
+                swc,
+                bundlerChain
+            },
+            testEnvironment: 'web' === target ? 'happy-dom' : 'node'
+        };
+        return rstestConfig;
+    };
+}
+export { withRslibConfig };

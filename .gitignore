@@ -8,6 +8,10 @@ node_modules
 dist/
 storybook-static
 
+# Playground build output
+playground/node_modules
+playground/dist
+
 # IDE
 .vscode/*
 !.vscode/extensions.json

@@ -1,0 +1,120 @@
+import 'module';
+/*#__PURE__*/ import.meta.url;
+import { __webpack_require__ } from "./rslib-runtime.js";
+import { AssertionError, strict } from "node:assert";
+import { Console } from "node:console";
+import "./5693.js";
+import { prettyTime } from "./1157.js";
+const external_node_util_ = __webpack_require__("node:util");
+const picocolors = __webpack_require__("../../node_modules/.pnpm/picocolors@1.1.1/node_modules/picocolors/picocolors.js");
+var picocolors_default = /*#__PURE__*/ __webpack_require__.n(picocolors);
+const RealDate = Date;
+function createCustomConsole({ rpc, testPath, printConsoleTrace }) {
+    const getConsoleTrace = ()=>{
+        const limit = Error.stackTraceLimit;
+        Error.stackTraceLimit = 4;
+        const stack = new Error('STACK_TRACE').stack;
+        const trace = stack?.split('\n').slice(4).join('\n');
+        Error.stackTraceLimit = limit;
+        return trace;
+    };
+    class CustomConsole extends Console {
+        _counters = {};
+        _timers = {};
+        _groupDepth = 0;
+        Console = Console;
+        getPrettyName(type) {
+            switch(type){
+                case 'error':
+                    return picocolors_default().red(type);
+                case 'warn':
+                    return picocolors_default().yellow(type);
+                case 'info':
+                    return picocolors_default().cyan(type);
+                default:
+                    return picocolors_default().gray(type);
+            }
+        }
+        _log(name, message, type = 'stdout') {
+            rpc.onConsoleLog({
+                content: '  '.repeat(this._groupDepth) + message,
+                name: this.getPrettyName(name),
+                testPath,
+                type,
+                trace: printConsoleTrace ? getConsoleTrace() : void 0
+            });
+        }
+        assert(value, message) {
+            try {
+                strict(value, message);
+            } catch (error) {
+                if (!(error instanceof AssertionError)) throw error;
+                this._log('assert', error.toString().replaceAll(/:\n\n.*\n/gs, ''), 'stderr');
+            }
+        }
+        count(label = 'default') {
+            if (!this._counters[label]) this._counters[label] = 0;
+            this._log('count', (0, external_node_util_.format)(`${label}: ${++this._counters[label]}`));
+        }
+        countReset(label = 'default') {
+            this._counters[label] = 0;
+        }
+        debug(firstArg, ...args) {
+            this._log('debug', (0, external_node_util_.format)(firstArg, ...args));
+        }
+        dir(firstArg, options = {}) {
+            const representation = (0, external_node_util_.inspect)(firstArg, options);
+            this._log('dir', (0, external_node_util_.formatWithOptions)(options, representation));
+        }
+        dirxml(firstArg, ...args) {
+            this._log('dirxml', (0, external_node_util_.format)(firstArg, ...args));
+        }
+        error(firstArg, ...args) {
+            this._log('error', (0, external_node_util_.format)(firstArg, ...args), 'stderr');
+        }
+        group(title, ...args) {
+            this._groupDepth++;
+            if (null != title || args.length > 0) this._log('group', picocolors_default().bold((0, external_node_util_.format)(title, ...args)));
+        }
+        groupCollapsed(title, ...args) {
+            this._groupDepth++;
+            if (null != title || args.length > 0) this._log('groupCollapsed', picocolors_default().bold((0, external_node_util_.format)(title, ...args)));
+        }
+        groupEnd() {
+            if (this._groupDepth > 0) this._groupDepth--;
+        }
+        info(firstArg, ...args) {
+            this._log('info', (0, external_node_util_.format)(firstArg, ...args));
+        }
+        log(firstArg, ...args) {
+            this._log('log', (0, external_node_util_.format)(firstArg, ...args));
+        }
+        time(label = 'default') {
+            if (null != this._timers[label]) return;
+            this._timers[label] = new RealDate();
+        }
+        timeEnd(label = 'default') {
+            const startTime = this._timers[label];
+            if (null != startTime) {
+                const endTime = RealDate.now();
+                const time = endTime - startTime.getTime();
+                this._log('time', (0, external_node_util_.format)(`${label}: ${prettyTime(time)}`));
+                delete this._timers[label];
+            }
+        }
+        timeLog(label = 'default', ...data) {
+            const startTime = this._timers[label];
+            if (null != startTime) {
+                const endTime = new RealDate();
+                const time = endTime.getTime() - startTime.getTime();
+                this._log('time', (0, external_node_util_.format)(`${label}: ${prettyTime(time)}`, ...data));
+            }
+        }
+        warn(firstArg, ...args) {
+            this._log('warn', (0, external_node_util_.format)(firstArg, ...args), 'stderr');
+        }
+        getBuffer() {}
+    }
+    return new CustomConsole(process.stdout, process.stderr);
+}
+export { createCustomConsole };

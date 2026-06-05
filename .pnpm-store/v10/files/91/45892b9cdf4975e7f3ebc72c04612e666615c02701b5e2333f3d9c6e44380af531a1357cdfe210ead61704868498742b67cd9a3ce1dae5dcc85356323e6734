@@ -1,0 +1,18 @@
+import 'module';
+/*#__PURE__*/ import.meta.url;
+import { __webpack_require__ } from "./rslib-runtime.js";
+import "./5693.js";
+const external_node_fs_ = __webpack_require__("node:fs");
+const pluginCoverageCore = (coverageOptions)=>({
+        name: 'rstest:coverage-core',
+        setup: (api)=>{
+            api.onBeforeDevCompile(({ isFirstCompile })=>{
+                if (isFirstCompile && coverageOptions.clean) {
+                    if (external_node_fs_["default"].existsSync(coverageOptions.reportsDirectory)) external_node_fs_["default"].rmSync(coverageOptions.reportsDirectory, {
+                        recursive: true
+                    });
+                }
+            });
+        }
+    });
+export { pluginCoverageCore };

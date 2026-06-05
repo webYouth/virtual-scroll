@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useEffect, useRef } from 'react';
 import type { GetKey } from '@/interface';
-import CacheMap from '../utils/CacheMap';
+import CacheMap, { type CacheKey } from '../utils/CacheMap';
 
 function parseNumber(value: string) {
   const num = parseFloat(value);
@@ -19,7 +19,7 @@ export default function useHeights<T>(
   updatedMark: number,
 ] {
   const [updatedMark, setUpdatedMark] = React.useState(0);
-  const instanceRef = useRef(new Map<React.Key, HTMLElement>());
+  const instanceRef = useRef(new Map<CacheKey, HTMLElement>());
   const heightsRef = useRef(new CacheMap());
 
   const promiseIdRef = useRef<number>(0);

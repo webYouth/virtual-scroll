@@ -1,0 +1,19 @@
+export = BasicMatcherRulePlugin;
+/** @typedef {import("./RuleSetCompiler")} RuleSetCompiler */
+/** @typedef {import("./RuleSetCompiler").RuleCondition} RuleCondition */
+declare class BasicMatcherRulePlugin {
+    constructor(ruleProperty: any, dataProperty: any, invert: any);
+    ruleProperty: any;
+    dataProperty: any;
+    invert: any;
+    /**
+     * @param {RuleSetCompiler} ruleSetCompiler the rule set compiler
+     * @returns {void}
+     */
+    apply(ruleSetCompiler: RuleSetCompiler): void;
+}
+declare namespace BasicMatcherRulePlugin {
+    export { RuleSetCompiler, RuleCondition };
+}
+type RuleSetCompiler = import("./RuleSetCompiler");
+type RuleCondition = import("./RuleSetCompiler").RuleCondition;

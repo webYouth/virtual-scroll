@@ -1,0 +1,149 @@
+import 'module';
+/*#__PURE__*/ import.meta.url;
+import { M, T } from "./0~6151.js";
+const isMockFunction = (fn)=>'function' == typeof fn && '_isMockFunction' in fn && fn._isMockFunction;
+const initSpy = ()=>{
+    let callOrder = 0;
+    const mocks = new Set();
+    const wrapSpy = (obj, methodName, mockFn)=>{
+        const spyImpl = M(obj, methodName, mockFn);
+        const spyFn = spyImpl;
+        let mockImplementationOnce = [];
+        let implementation = mockFn;
+        let mockName = mockFn?.name;
+        const initMockState = ()=>({
+                instances: [],
+                contexts: [],
+                invocationCallOrder: []
+            });
+        let mockState = initMockState();
+        const spyState = T(spyImpl);
+        spyFn.getMockName = ()=>mockName || methodName;
+        spyFn.mockName = (name)=>{
+            mockName = name;
+            return spyFn;
+        };
+        spyFn.getMockImplementation = ()=>mockImplementationOnce.length ? mockImplementationOnce[mockImplementationOnce.length - 1] : implementation;
+        function withImplementation(fn, cb) {
+            const originalImplementation = implementation;
+            const originalMockImplementationOnce = mockImplementationOnce;
+            implementation = fn;
+            mockImplementationOnce = [];
+            spyState.willCall(willCall);
+            const reset = ()=>{
+                implementation = originalImplementation;
+                mockImplementationOnce = originalMockImplementationOnce;
+            };
+            const result = cb();
+            if (result instanceof Promise) return result.then(()=>{
+                reset();
+            });
+            reset();
+        }
+        spyFn.withImplementation = withImplementation;
+        spyFn.mockImplementation = (fn)=>{
+            implementation = fn;
+            return spyFn;
+        };
+        spyFn.mockImplementationOnce = (fn)=>{
+            mockImplementationOnce.push(fn);
+            return spyFn;
+        };
+        spyFn.mockReturnValue = (value)=>spyFn.mockImplementation(()=>value);
+        spyFn.mockReturnValueOnce = (value)=>spyFn.mockImplementationOnce(()=>value);
+        spyFn.mockResolvedValue = (value)=>spyFn.mockImplementation(()=>Promise.resolve(value));
+        spyFn.mockResolvedValueOnce = (value)=>spyFn.mockImplementationOnce(()=>Promise.resolve(value));
+        spyFn.mockRejectedValue = (value)=>spyFn.mockImplementation(()=>Promise.reject(value));
+        spyFn.mockRejectedValueOnce = (value)=>spyFn.mockImplementationOnce(()=>Promise.reject(value));
+        spyFn.mockReturnThis = ()=>spyFn.mockImplementation(function() {
+                return this;
+            });
+        function willCall(...args) {
+            let impl = implementation || spyState.getOriginal();
+            mockState.instances.push(this);
+            mockState.contexts.push(this);
+            mockState.invocationCallOrder.push(++callOrder);
+            if (mockImplementationOnce.length) impl = mockImplementationOnce.shift();
+            return impl?.apply(this, args);
+        }
+        spyState.willCall(willCall);
+        Object.defineProperty(spyFn, 'mock', {
+            get: ()=>({
+                    get calls () {
+                        return spyState.calls;
+                    },
+                    get lastCall () {
+                        return spyState.calls[spyState.callCount - 1];
+                    },
+                    get instances () {
+                        return mockState.instances;
+                    },
+                    get contexts () {
+                        return mockState.contexts;
+                    },
+                    get invocationCallOrder () {
+                        return mockState.invocationCallOrder;
+                    },
+                    get results () {
+                        return spyState.results.map(([resultType, value])=>{
+                            const type = 'error' === resultType ? 'throw' : 'return';
+                            return {
+                                type: type,
+                                value
+                            };
+                        });
+                    },
+                    get settledResults () {
+                        return spyState.resolves.map(([resultType, value])=>{
+                            const type = 'error' === resultType ? 'rejected' : 'fulfilled';
+                            return {
+                                type,
+                                value
+                            };
+                        });
+                    }
+                })
+        });
+        spyFn.mockClear = ()=>{
+            mockState = initMockState();
+            spyState.reset();
+            return spyFn;
+        };
+        spyFn.mockReset = ()=>{
+            spyFn.mockClear();
+            implementation = mockFn;
+            mockImplementationOnce = [];
+            return spyFn;
+        };
+        spyFn.mockRestore = ()=>{
+            spyFn.mockReset();
+            spyState.restore();
+            mockName = mockFn?.name;
+        };
+        mocks.add(spyFn);
+        return spyFn;
+    };
+    const fn = (mockFn)=>{
+        const defaultName = 'rstest.fn()';
+        return wrapSpy({
+            [defaultName]: mockFn
+        }, defaultName, mockFn);
+    };
+    const spyOn = (obj, methodName, accessType)=>{
+        const accessTypeMap = {
+            get: 'getter',
+            set: 'setter'
+        };
+        const method = accessType ? {
+            [accessTypeMap[accessType]]: methodName
+        } : methodName;
+        return wrapSpy(obj, method);
+    };
+    return {
+        isMockFunction: isMockFunction,
+        spyOn,
+        fn,
+        mocks
+    };
+};
+export { initSpy };

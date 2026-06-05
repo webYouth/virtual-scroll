@@ -1,0 +1,94 @@
+import 'module';
+/*#__PURE__*/ import.meta.url;
+import { __webpack_require__ } from "./rslib-runtime.js";
+import "./5693.js";
+import { runRest } from "./9131.js";
+import { isTTY } from "./1157.js";
+import { logger_logger } from "./3278.js";
+const GLOB_REGEX = /[*?{}[\]()!@+|]/;
+const isGlob = (str)=>GLOB_REGEX.test(str);
+async function createChokidar(pathOrGlobs, root, options) {
+    const chokidar = await import("./0~7583.js").then((mod)=>({
+            watch: mod.watch
+        }));
+    const watchFiles = new Set();
+    const globPatterns = pathOrGlobs.filter((pathOrGlob)=>{
+        if (isGlob(pathOrGlob)) return true;
+        watchFiles.add(pathOrGlob);
+        return false;
+    });
+    if (globPatterns.length) {
+        const { glob } = await import("./1157.js").then((mod)=>({
+                glob: mod.glob
+            }));
+        const files = await glob(globPatterns, {
+            cwd: root,
+            absolute: true
+        });
+        for (const file of files)watchFiles.add(file);
+    }
+    return chokidar.watch(Array.from(watchFiles), options);
+}
+const external_node_path_ = __webpack_require__("node:path");
+const picocolors = __webpack_require__("../../node_modules/.pnpm/picocolors@1.1.1/node_modules/picocolors/picocolors.js");
+var picocolors_default = /*#__PURE__*/ __webpack_require__.n(picocolors);
+let cleaners = [];
+const onBeforeRestart = (cleaner)=>{
+    cleaners.push(cleaner);
+};
+const clearConsole = ()=>{
+    if (isTTY() && !process.env.DEBUG) process.stdout.write('\x1B[H\x1B[2J');
+};
+const beforeRestart = async ({ filePath, root, clear = true })=>{
+    if (clear) clearConsole();
+    if (filePath) {
+        const filename = external_node_path_["default"].relative(root, filePath);
+        logger_logger.info(`restarting Rstest as ${picocolors_default().yellow(filename)} changed\n`);
+    } else logger_logger.info('restarting Rstest...\n');
+    for (const cleaner of cleaners)await cleaner();
+    cleaners = [];
+};
+const restart = async ({ filePath, clear = true, options, filters, root })=>{
+    await beforeRestart({
+        filePath,
+        root,
+        clear
+    });
+    await runRest({
+        options,
+        filters,
+        command: 'watch'
+    });
+    return true;
+};
+async function watchFilesForRestart({ rstest, watchOptions, options, filters }) {
+    const configFilePaths = [
+        rstest.context.configFilePath,
+        ...rstest.context.projects.map((project)=>project.configFilePath)
+    ].filter(Boolean);
+    if (0 === configFilePaths.length) return;
+    const root = rstest.context.rootPath;
+    const watcher = await createChokidar(configFilePaths, root, {
+        ignoreInitial: true,
+        ignorePermissionErrors: true,
+        ...watchOptions
+    });
+    let restarting = false;
+    const onChange = async (filePath)=>{
+        if (restarting) return;
+        restarting = true;
+        const restarted = await restart({
+            options,
+            root,
+            filters,
+            filePath
+        });
+        if (restarted) await watcher.close();
+        else logger_logger.error('Restart failed');
+        restarting = false;
+    };
+    watcher.on('add', onChange);
+    watcher.on('change', onChange);
+    watcher.on('unlink', onChange);
+}
+export { onBeforeRestart, watchFilesForRestart };

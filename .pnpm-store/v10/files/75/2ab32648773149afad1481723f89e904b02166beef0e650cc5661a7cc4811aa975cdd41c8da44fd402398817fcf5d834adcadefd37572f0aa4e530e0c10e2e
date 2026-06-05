@@ -1,0 +1,442 @@
+import 'module';
+/*#__PURE__*/ import.meta.url;
+import { __webpack_require__ } from "./rslib-runtime.js";
+import "./5693.js";
+import { getTestEntries, isTTY } from "./1157.js";
+import { createCoverageProvider } from "./5734.js";
+import { prepareRsbuild, createPool, createRsbuildServer, runGlobalTeardown, runGlobalSetup } from "./0~89.js";
+import { clearScreen, logger_logger } from "./3278.js";
+const picocolors = __webpack_require__("../../node_modules/.pnpm/picocolors@1.1.1/node_modules/picocolors/picocolors.js");
+var picocolors_default = /*#__PURE__*/ __webpack_require__.n(picocolors);
+const isCliShortcutsEnabled = ()=>isTTY('stdin');
+async function setupCliShortcuts({ closeServer, runAll, updateSnapshot, runFailedTests, runWithTestNamePattern, runWithFileFilters }) {
+    const { createInterface, emitKeypressEvents } = await import("node:readline");
+    const rl = createInterface({
+        input: process.stdin,
+        output: process.stdout
+    });
+    emitKeypressEvents(process.stdin);
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    process.stdin.setEncoding('utf8');
+    let isPrompting = false;
+    const clearCurrentInputLine = ()=>{
+        try {
+            process.stdout.write('\r\x1b[2K');
+        } catch  {}
+    };
+    const promptInput = async (promptText, onComplete)=>{
+        if (isPrompting) return;
+        isPrompting = true;
+        let buffer = '';
+        const render = ()=>{
+            process.stdout.write(`\r\x1b[2K${promptText}${buffer}`);
+        };
+        render();
+        const onPromptKey = async (str, key)=>{
+            if (!isPrompting) return;
+            if (key.ctrl && 'c' === key.name) process.exit(0);
+            if ('return' === key.name || 'enter' === key.name) {
+                process.stdin.off('keypress', onPromptKey);
+                process.stdout.write('\n');
+                const value = '' === buffer.trim() ? void 0 : buffer.trim();
+                isPrompting = false;
+                await onComplete(value);
+                return;
+            }
+            if ('escape' === key.name) {
+                clearCurrentInputLine();
+                process.stdin.off('keypress', onPromptKey);
+                isPrompting = false;
+                return;
+            }
+            if ('backspace' === key.name) {
+                buffer = buffer.slice(0, -1);
+                render();
+                return;
+            }
+            if ('string' == typeof str && 1 === str.length) {
+                buffer += str;
+                render();
+            }
+        };
+        process.stdin.on('keypress', onPromptKey);
+    };
+    const shortcuts = [
+        {
+            key: 'f',
+            description: `${picocolors_default().bold('f')}  ${picocolors_default().dim('rerun failed tests')}`,
+            action: async ()=>{
+                await runFailedTests();
+            }
+        },
+        {
+            key: 'a',
+            description: `${picocolors_default().bold('a')}  ${picocolors_default().dim('rerun all tests')}`,
+            action: async ()=>{
+                await runAll();
+            }
+        },
+        {
+            key: 'u',
+            description: `${picocolors_default().bold('u')}  ${picocolors_default().dim('update snapshot')}`,
+            action: async ()=>{
+                await updateSnapshot();
+            }
+        },
+        {
+            key: 't',
+            description: `${picocolors_default().bold('t')}  ${picocolors_default().dim('filter by a test name regex pattern')}`,
+            action: async ()=>{
+                clearCurrentInputLine();
+                await promptInput('Enter test name pattern (empty to clear): ', async (pattern)=>{
+                    await runWithTestNamePattern(pattern);
+                });
+            }
+        },
+        {
+            key: 'p',
+            description: `${picocolors_default().bold('p')}  ${picocolors_default().dim('filter by a filename regex pattern')}`,
+            action: async ()=>{
+                clearCurrentInputLine();
+                await promptInput('Enter file name pattern (empty to clear): ', async (input)=>{
+                    const filters = input ? input.split(/\s+/).filter(Boolean) : void 0;
+                    await runWithFileFilters(filters);
+                });
+            }
+        },
+        {
+            key: 'c',
+            description: `${picocolors_default().bold('c')}  ${picocolors_default().dim('clear screen')}`,
+            action: ()=>{
+                clearScreen(true);
+            }
+        },
+        {
+            key: 'q',
+            description: `${picocolors_default().bold('q')}  ${picocolors_default().dim('quit process')}`,
+            action: async ()=>{
+                try {
+                    await closeServer();
+                } finally{
+                    process.exit(0);
+                }
+            }
+        }
+    ];
+    const handleKeypress = (str, key)=>{
+        if (isPrompting) return;
+        if (key.ctrl && 'c' === key.name) process.exit(0);
+        for (const shortcut of shortcuts)if (str === shortcut.key) {
+            clearCurrentInputLine();
+            shortcut.action();
+            return;
+        }
+        if ('h' === str) {
+            clearCurrentInputLine();
+            let message = `  ${picocolors_default().bold(picocolors_default().blue('Shortcuts:'))}\n`;
+            for (const shortcut of shortcuts)message += `  ${shortcut.description}\n`;
+            logger_logger.log(message);
+        }
+    };
+    process.stdin.on('keypress', handleKeypress);
+    return ()=>{
+        try {
+            process.stdin.setRawMode(false);
+            process.stdin.pause();
+        } catch  {}
+        process.stdin.off('keypress', handleKeypress);
+        rl.close();
+    };
+}
+async function runTests(context) {
+    const { rootPath, reporters, projects, snapshotManager, command, normalizedConfig: { coverage } } = context;
+    const entriesCache = new Map();
+    const globTestSourceEntries = async (name)=>{
+        const { include, exclude, includeSource, root } = projects.find((p)=>p.environmentName === name).normalizedConfig;
+        const entries = await getTestEntries({
+            include,
+            exclude: exclude.patterns,
+            includeSource,
+            rootPath,
+            projectRoot: root,
+            fileFilters: context.fileFilters || []
+        });
+        entriesCache.set(name, {
+            entries,
+            fileFilters: context.fileFilters
+        });
+        return entries;
+    };
+    const { getSetupFiles } = await import("./0~6973.js").then((mod)=>({
+            getSetupFiles: mod.getSetupFiles
+        }));
+    const setupFiles = Object.fromEntries(context.projects.map((project)=>{
+        const { environmentName, rootPath, normalizedConfig: { setupFiles } } = project;
+        return [
+            environmentName,
+            getSetupFiles(setupFiles, rootPath)
+        ];
+    }));
+    const globalSetupFiles = Object.fromEntries(context.projects.map((project)=>{
+        const { environmentName, rootPath, normalizedConfig: { globalSetup } } = project;
+        return [
+            environmentName,
+            getSetupFiles(globalSetup, rootPath)
+        ];
+    }));
+    const rsbuildInstance = await prepareRsbuild(context, globTestSourceEntries, setupFiles, globalSetupFiles);
+    const isWatchMode = 'watch' === command;
+    const { getRsbuildStats, closeServer } = await createRsbuildServer({
+        inspectedConfig: {
+            ...context.normalizedConfig,
+            projects: context.projects.map((p)=>p.normalizedConfig)
+        },
+        isWatchMode,
+        globTestSourceEntries: isWatchMode ? globTestSourceEntries : async (name)=>{
+            if (entriesCache.has(name)) return entriesCache.get(name).entries;
+            return globTestSourceEntries(name);
+        },
+        setupFiles,
+        globalSetupFiles,
+        rsbuildInstance,
+        rootPath
+    });
+    const entryFiles = Array.from(entriesCache.values()).reduce((acc, entry)=>acc.concat(Object.values(entry.entries) || []), []);
+    const recommendWorkerCount = 'watch' === command ? 1 / 0 : entryFiles.length;
+    const pool = await createPool({
+        context,
+        recommendWorkerCount
+    });
+    const coverageProvider = coverage.enabled ? await createCoverageProvider(coverage, context.rootPath) : null;
+    if (coverageProvider) logger_logger.log(` ${picocolors_default().gray('Coverage enabled with')} %s\n`, picocolors_default().yellow(coverage.provider));
+    const run = async ({ fileFilters, mode = 'all', buildStart = Date.now() } = {})=>{
+        let testStart;
+        const currentEntries = [];
+        const currentDeletedEntries = [];
+        context.stateManager.reset();
+        context.stateManager.testFiles = isWatchMode ? void 0 : entryFiles;
+        const returns = await Promise.all(context.projects.map(async (p)=>{
+            const { assetNames, entries, setupEntries, globalSetupEntries, getAssetFiles, getSourceMaps, affectedEntries, deletedEntries } = await getRsbuildStats({
+                environmentName: p.environmentName,
+                fileFilters
+            });
+            testStart ??= Date.now();
+            if (entries.length && globalSetupEntries.length && !p._globalSetups) {
+                p._globalSetups = true;
+                const files = globalSetupEntries.flatMap((e)=>e.files);
+                const assetFiles = await getAssetFiles(files);
+                const sourceMaps = await getSourceMaps(files);
+                const { success, errors } = await runGlobalSetup({
+                    globalSetupEntries,
+                    assetFiles,
+                    sourceMaps,
+                    interopDefault: true,
+                    outputModule: p.outputModule
+                });
+                if (!success) return {
+                    results: [],
+                    testResults: [],
+                    errors,
+                    assetNames,
+                    getSourceMaps: ()=>null
+                };
+            }
+            currentDeletedEntries.push(...deletedEntries);
+            let finalEntries = entries;
+            if ('on-demand' === mode) {
+                if (0 === affectedEntries.length) logger_logger.debug(picocolors_default().yellow(`No test files need re-run in project(${p.environmentName}).`));
+                else logger_logger.debug(picocolors_default().yellow(`Test files to re-run in project(${p.environmentName}):\n`) + affectedEntries.map((e)=>e.testPath).join('\n') + '\n');
+                finalEntries = affectedEntries;
+            } else logger_logger.debug(picocolors_default().yellow(fileFilters?.length ? `Run filtered tests in project(${p.environmentName}).\n` : `Run all tests in project(${p.environmentName}).\n`));
+            currentEntries.push(...finalEntries);
+            const { results, testResults } = await pool.runTests({
+                entries: finalEntries,
+                getSourceMaps,
+                setupEntries,
+                getAssetFiles,
+                project: p,
+                updateSnapshot: context.snapshotManager.options.updateSnapshot
+            });
+            return {
+                results,
+                testResults,
+                assetNames,
+                getSourceMaps
+            };
+        }));
+        const buildTime = testStart - buildStart;
+        const testTime = Date.now() - testStart;
+        const duration = {
+            totalTime: testTime + buildTime,
+            buildTime,
+            testTime
+        };
+        const results = returns.flatMap((r)=>r.results);
+        const testResults = returns.flatMap((r)=>r.testResults);
+        const errors = returns.flatMap((r)=>r.errors || []);
+        context.updateReporterResultState(results, testResults, currentDeletedEntries);
+        if (0 === results.length && !errors.length) {
+            if ('watch' === command) if ('on-demand' === mode) logger_logger.log(picocolors_default().yellow('No test files need re-run.'));
+            else logger_logger.log(picocolors_default().yellow('No test files found.'));
+            else {
+                const code = context.normalizedConfig.passWithNoTests ? 0 : 1;
+                logger_logger.log(picocolors_default()[code ? 'red' : 'yellow'](`No test files found, exiting with code ${code}.`));
+                process.exitCode = code;
+            }
+            if ('all' === mode) {
+                if (context.fileFilters?.length) logger_logger.log(picocolors_default().gray('filter: '), context.fileFilters.join(picocolors_default().gray(', ')));
+                context.projects.forEach((p)=>{
+                    if (context.projects.length > 1) {
+                        logger_logger.log('');
+                        logger_logger.log(picocolors_default().gray('project:'), p.name);
+                    }
+                    logger_logger.log(picocolors_default().gray('include:'), p.normalizedConfig.include.join(picocolors_default().gray(', ')));
+                    logger_logger.log(picocolors_default().gray('exclude:'), p.normalizedConfig.exclude.patterns.join(picocolors_default().gray(', ')));
+                });
+            }
+        }
+        const isFailure = results.some((r)=>'fail' === r.status) || errors.length;
+        if (isFailure) process.exitCode = 1;
+        for (const reporter of reporters)await reporter.onTestRunEnd?.({
+            results: context.reporterResults.results,
+            testResults: context.reporterResults.testResults,
+            unhandledErrors: errors,
+            snapshotSummary: snapshotManager.summary,
+            duration,
+            getSourcemap: async (name)=>{
+                const resource = returns.find((r)=>r.assetNames.includes(name));
+                const sourceMap = (await resource?.getSourceMaps([
+                    name
+                ]))?.[name];
+                return sourceMap ? JSON.parse(sourceMap) : null;
+            },
+            filterRerunTestPaths: currentEntries.length ? currentEntries.map((e)=>e.testPath) : void 0
+        });
+        if (coverageProvider && (!isFailure || coverage.reportOnFailure)) {
+            const { generateCoverage } = await import("./0~4403.js").then((mod)=>({
+                    generateCoverage: mod.generateCoverage
+                }));
+            await generateCoverage(context, results, coverageProvider);
+        }
+        if (isFailure) {
+            const bail = context.normalizedConfig.bail;
+            if (bail && context.stateManager.getCountOfFailedTests() >= bail) logger_logger.log(picocolors_default().yellow(`Test run aborted due to reaching the bail limit of ${bail} failed test(s).`));
+        }
+    };
+    if ('watch' === command) {
+        const enableCliShortcuts = isCliShortcutsEnabled();
+        const afterTestsWatchRun = ()=>{
+            logger_logger.log(picocolors_default().green('  Waiting for file changes...'));
+            if (enableCliShortcuts) if (snapshotManager.summary.unmatched) logger_logger.log(`  ${picocolors_default().dim('press')} ${picocolors_default().yellow(picocolors_default().bold('u'))} ${picocolors_default().dim('to update snapshot')}${picocolors_default().dim(', press')} ${picocolors_default().bold('h')} ${picocolors_default().dim('to show help')}\n`);
+            else logger_logger.log(`  ${picocolors_default().dim('press')} ${picocolors_default().bold('h')} ${picocolors_default().dim('to show help')}${picocolors_default().dim(', press')} ${picocolors_default().bold('q')} ${picocolors_default().dim('to quit')}\n`);
+        };
+        const { onBeforeRestart } = await import("./0~6588.js").then((mod)=>({
+                onBeforeRestart: mod.onBeforeRestart
+            }));
+        onBeforeRestart(async ()=>{
+            await runGlobalTeardown();
+            await pool.close();
+            await closeServer();
+        });
+        let buildStart;
+        rsbuildInstance.onBeforeDevCompile(({ isFirstCompile })=>{
+            buildStart = Date.now();
+            if (!isFirstCompile) clearScreen();
+        });
+        rsbuildInstance.onAfterDevCompile(async ({ isFirstCompile })=>{
+            snapshotManager.clear();
+            await run({
+                buildStart,
+                mode: isFirstCompile ? 'all' : 'on-demand'
+            });
+            buildStart = void 0;
+            if (isFirstCompile && enableCliShortcuts) {
+                const closeCliShortcuts = await setupCliShortcuts({
+                    closeServer: async ()=>{
+                        await pool.close();
+                        await closeServer();
+                    },
+                    runAll: async ()=>{
+                        clearScreen();
+                        snapshotManager.clear();
+                        context.normalizedConfig.testNamePattern = void 0;
+                        context.fileFilters = void 0;
+                        await run({
+                            mode: 'all'
+                        });
+                        afterTestsWatchRun();
+                    },
+                    runWithTestNamePattern: async (pattern)=>{
+                        clearScreen();
+                        context.normalizedConfig.testNamePattern = pattern;
+                        if (pattern) logger_logger.log(`\n${picocolors_default().dim('Applied testNamePattern:')} ${picocolors_default().bold(pattern)}\n`);
+                        else logger_logger.log(`\n${picocolors_default().dim('Cleared testNamePattern filter')}\n`);
+                        snapshotManager.clear();
+                        await run();
+                        afterTestsWatchRun();
+                    },
+                    runWithFileFilters: async (filters)=>{
+                        clearScreen();
+                        if (filters && filters.length > 0) logger_logger.log(`\n${picocolors_default().dim('Applied file filters:')} ${picocolors_default().bold(filters.join(', '))}\n`);
+                        else logger_logger.log(`\n${picocolors_default().dim('Cleared file filters')}\n`);
+                        snapshotManager.clear();
+                        context.fileFilters = filters;
+                        const entries = await Promise.all(projects.map(async (p)=>globTestSourceEntries(p.environmentName))).then((entries)=>entries.reduce((acc, entry)=>acc.concat(...Object.values(entry)), []));
+                        if (!entries.length) return void logger_logger.log(filters ? picocolors_default().yellow(`\nNo matching test files to run with current file filters: ${filters.join(',')}\n`) : picocolors_default().yellow('\nNo matching test files to run.\n'));
+                        await run({
+                            fileFilters: entries
+                        });
+                        afterTestsWatchRun();
+                    },
+                    runFailedTests: async ()=>{
+                        const failedTests = context.reporterResults.results.filter((result)=>'fail' === result.status).map((r)=>r.testPath);
+                        if (!failedTests.length) return void logger_logger.log(picocolors_default().yellow('\nNo failed tests were found that needed to be rerun.'));
+                        clearScreen();
+                        snapshotManager.clear();
+                        await run({
+                            fileFilters: failedTests,
+                            mode: 'all'
+                        });
+                        afterTestsWatchRun();
+                    },
+                    updateSnapshot: async ()=>{
+                        if (!snapshotManager.summary.unmatched) return void logger_logger.log(picocolors_default().yellow('\nNo snapshots were found that needed to be updated.'));
+                        const failedTests = context.reporterResults.results.filter((result)=>result.snapshotResult?.unmatched).map((r)=>r.testPath);
+                        clearScreen();
+                        const originalUpdateSnapshot = snapshotManager.options.updateSnapshot;
+                        snapshotManager.clear();
+                        snapshotManager.options.updateSnapshot = 'all';
+                        await run({
+                            fileFilters: failedTests
+                        });
+                        afterTestsWatchRun();
+                        snapshotManager.options.updateSnapshot = originalUpdateSnapshot;
+                    }
+                });
+                onBeforeRestart(closeCliShortcuts);
+            }
+            afterTestsWatchRun();
+        });
+    } else {
+        let isTeardown = false;
+        const unExpectedExit = (code)=>{
+            if (isTeardown) logger_logger.log(picocolors_default().yellow(`Rstest exited unexpectedly with code ${code}, this is likely caused by test environment teardown.`));
+            else {
+                logger_logger.log(picocolors_default().red(`Rstest exited unexpectedly with code ${code}, terminating test run.`));
+                runGlobalTeardown().catch((error)=>{
+                    logger_logger.log(picocolors_default().red(`Error in global teardown: ${error}`));
+                });
+                process.exitCode = 1;
+            }
+        };
+        process.on('exit', unExpectedExit);
+        await run();
+        isTeardown = true;
+        await pool.close();
+        await closeServer();
+        await runGlobalTeardown();
+        process.off('exit', unExpectedExit);
+    }
+}
+export { runTests };

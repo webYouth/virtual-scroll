@@ -1,0 +1,765 @@
+import 'module';
+/*#__PURE__*/ import.meta.url;
+import { __webpack_require__ } from "./rslib-runtime.js";
+import node_process from "node:process";
+import "./5693.js";
+const external_node_os_ = __webpack_require__("node:os");
+const external_node_tty_ = __webpack_require__("node:tty");
+function hasFlag(flag, argv = globalThis.Deno ? globalThis.Deno.args : node_process.argv) {
+    const prefix = flag.startsWith('-') ? '' : 1 === flag.length ? '-' : '--';
+    const position = argv.indexOf(prefix + flag);
+    const terminatorPosition = argv.indexOf('--');
+    return -1 !== position && (-1 === terminatorPosition || position < terminatorPosition);
+}
+const { env: env } = node_process;
+let flagForceColor;
+if (hasFlag('no-color') || hasFlag('no-colors') || hasFlag('color=false') || hasFlag('color=never')) flagForceColor = 0;
+else if (hasFlag('color') || hasFlag('colors') || hasFlag('color=true') || hasFlag('color=always')) flagForceColor = 1;
+function envForceColor() {
+    if (!('FORCE_COLOR' in env)) return;
+    if ('true' === env.FORCE_COLOR) return 1;
+    if ('false' === env.FORCE_COLOR) return 0;
+    if (0 === env.FORCE_COLOR.length) return 1;
+    const level = Math.min(Number.parseInt(env.FORCE_COLOR, 10), 3);
+    if (![
+        0,
+        1,
+        2,
+        3
+    ].includes(level)) return;
+    return level;
+}
+function translateLevel(level) {
+    if (0 === level) return false;
+    return {
+        level,
+        hasBasic: true,
+        has256: level >= 2,
+        has16m: level >= 3
+    };
+}
+function _supportsColor(haveStream, { streamIsTTY, sniffFlags = true } = {}) {
+    const noFlagForceColor = envForceColor();
+    if (void 0 !== noFlagForceColor) flagForceColor = noFlagForceColor;
+    const forceColor = sniffFlags ? flagForceColor : noFlagForceColor;
+    if (0 === forceColor) return 0;
+    if (sniffFlags) {
+        if (hasFlag('color=16m') || hasFlag('color=full') || hasFlag('color=truecolor')) return 3;
+        if (hasFlag('color=256')) return 2;
+    }
+    if ('TF_BUILD' in env && 'AGENT_NAME' in env) return 1;
+    if (haveStream && !streamIsTTY && void 0 === forceColor) return 0;
+    const min = forceColor || 0;
+    if ('dumb' === env.TERM) return min;
+    if ('win32' === node_process.platform) {
+        const osRelease = external_node_os_["default"].release().split('.');
+        if (Number(osRelease[0]) >= 10 && Number(osRelease[2]) >= 10586) return Number(osRelease[2]) >= 14931 ? 3 : 2;
+        return 1;
+    }
+    if ('CI' in env) {
+        if ([
+            'GITHUB_ACTIONS',
+            'GITEA_ACTIONS',
+            'CIRCLECI'
+        ].some((key)=>key in env)) return 3;
+        if ([
+            'TRAVIS',
+            'APPVEYOR',
+            'GITLAB_CI',
+            'BUILDKITE',
+            'DRONE'
+        ].some((sign)=>sign in env) || 'codeship' === env.CI_NAME) return 1;
+        return min;
+    }
+    if ('TEAMCITY_VERSION' in env) return /^(9\.(0*[1-9]\d*)\.|\d{2,}\.)/.test(env.TEAMCITY_VERSION) ? 1 : 0;
+    if ('truecolor' === env.COLORTERM) return 3;
+    if ('xterm-kitty' === env.TERM) return 3;
+    if ('xterm-ghostty' === env.TERM) return 3;
+    if ('wezterm' === env.TERM) return 3;
+    if ('TERM_PROGRAM' in env) {
+        const version = Number.parseInt((env.TERM_PROGRAM_VERSION || '').split('.')[0], 10);
+        switch(env.TERM_PROGRAM){
+            case 'iTerm.app':
+                return version >= 3 ? 3 : 2;
+            case 'Apple_Terminal':
+                return 2;
+        }
+    }
+    if (/-256(color)?$/i.test(env.TERM)) return 2;
+    if (/^screen|^xterm|^vt100|^vt220|^rxvt|color|ansi|cygwin|linux/i.test(env.TERM)) return 1;
+    if ('COLORTERM' in env) return 1;
+    return min;
+}
+function createSupportsColor(stream, options = {}) {
+    const level = _supportsColor(stream, {
+        streamIsTTY: stream && stream.isTTY,
+        ...options
+    });
+    return translateLevel(level);
+}
+const supportsColor = {
+    stdout: createSupportsColor({
+        isTTY: external_node_tty_["default"].isatty(1)
+    }),
+    stderr: createSupportsColor({
+        isTTY: external_node_tty_["default"].isatty(2)
+    })
+};
+const supports_color = supportsColor;
+const colorLevel = supports_color.stdout ? supports_color.stdout.level : 0;
+let errorStackRegExp = /at [^\r\n]{0,200}:\d+:\d+[\s\)]*$/;
+let anonymousErrorStackRegExp = /at [^\r\n]{0,200}\(<anonymous>\)$/;
+let indexErrorStackRegExp = /at [^\r\n]{0,200}\(index\s\d+\)$/;
+let isErrorStackMessage = (message)=>errorStackRegExp.test(message) || anonymousErrorStackRegExp.test(message) || indexErrorStackRegExp.test(message);
+let formatter = (open, close, replace = open)=>colorLevel >= 2 ? (input)=>{
+        let string = '' + input;
+        let index = string.indexOf(close, open.length);
+        return ~index ? open + replaceClose(string, close, replace, index) + close : open + string + close;
+    } : String;
+let replaceClose = (string, close, replace, index)=>{
+    let start = string.substring(0, index) + replace;
+    let end = string.substring(index + close.length);
+    let nextIndex = end.indexOf(close);
+    return ~nextIndex ? start + replaceClose(end, close, replace, nextIndex) : start + end;
+};
+const bold = formatter('\x1b[1m', '\x1b[22m', '\x1b[22m\x1b[1m');
+const red = formatter('\x1b[31m', '\x1b[39m');
+const green = formatter('\x1b[32m', '\x1b[39m');
+const yellow = formatter('\x1b[33m', '\x1b[39m');
+const magenta = formatter('\x1b[35m', '\x1b[39m');
+const cyan = formatter('\x1b[36m', '\x1b[39m');
+const gray = formatter('\x1b[90m', '\x1b[39m');
+let startColor = [
+    189,
+    255,
+    243
+];
+let endColor = [
+    74,
+    194,
+    154
+];
+let isWord = (char)=>!/[\s\n]/.test(char);
+let gradient = (message)=>{
+    if (colorLevel < 3) return 2 === colorLevel ? bold(cyan(message)) : message;
+    let chars = [
+        ...message
+    ];
+    let steps = chars.filter(isWord).length;
+    let r = startColor[0];
+    let g = startColor[1];
+    let b = startColor[2];
+    let rStep = (endColor[0] - r) / steps;
+    let gStep = (endColor[1] - g) / steps;
+    let bStep = (endColor[2] - b) / steps;
+    let output = '';
+    for (let char of chars){
+        if (isWord(char)) {
+            r += rStep;
+            g += gStep;
+            b += bStep;
+        }
+        output += `\x1b[38;2;${Math.round(r)};${Math.round(g)};${Math.round(b)}m${char}\x1b[39m`;
+    }
+    return bold(output);
+};
+let LOG_LEVEL = {
+    silent: -1,
+    error: 0,
+    warn: 1,
+    info: 2,
+    log: 2,
+    verbose: 3
+};
+let LOG_TYPES = {
+    error: {
+        label: 'error',
+        level: 'error',
+        color: red
+    },
+    warn: {
+        label: 'warn',
+        level: 'warn',
+        color: yellow
+    },
+    info: {
+        label: 'info',
+        level: 'info',
+        color: cyan
+    },
+    start: {
+        label: 'start',
+        level: 'info',
+        color: cyan
+    },
+    ready: {
+        label: 'ready',
+        level: 'info',
+        color: green
+    },
+    success: {
+        label: 'success',
+        level: 'info',
+        color: green
+    },
+    log: {
+        level: 'info'
+    },
+    debug: {
+        label: 'debug',
+        level: 'verbose',
+        color: magenta
+    }
+};
+const normalizeErrorMessage = (err)=>{
+    if (err.stack) {
+        let [name, ...rest] = err.stack.split('\n');
+        if (name.startsWith('Error: ')) name = name.slice(7);
+        return `${name}\n${gray(rest.join('\n'))}`;
+    }
+    return err.message;
+};
+let createLogger = (options = {})=>{
+    let maxLevel = options.level || 'info';
+    let log = (type, message, ...args)=>{
+        let logType = LOG_TYPES[type];
+        const { level } = logType;
+        if (LOG_LEVEL[level] > LOG_LEVEL[maxLevel]) return;
+        if (null == message) return console.log();
+        let label = '';
+        let text = '';
+        if ('label' in logType) {
+            label = (logType.label || '').padEnd(7);
+            label = bold(logType.color ? logType.color(label) : label);
+        }
+        if (message instanceof Error) {
+            text += normalizeErrorMessage(message);
+            const { cause } = message;
+            if (cause) {
+                text += yellow('\n  [cause]: ');
+                text += cause instanceof Error ? normalizeErrorMessage(cause) : String(cause);
+            }
+        } else if ('error' === level && 'string' == typeof message) {
+            let lines = message.split('\n');
+            text = lines.map((line)=>isErrorStackMessage(line) ? gray(line) : line).join('\n');
+        } else text = `${message}`;
+        const method = 'error' === level || 'warn' === level ? level : 'log';
+        console[method](label.length ? `${label} ${text}` : text, ...args);
+    };
+    let logger = {
+        greet: (message)=>log('log', gradient(message))
+    };
+    Object.keys(LOG_TYPES).forEach((key)=>{
+        logger[key] = (...args)=>log(key, ...args);
+    });
+    Object.defineProperty(logger, 'level', {
+        get: ()=>maxLevel,
+        set (val) {
+            maxLevel = val;
+        }
+    });
+    logger.override = (customLogger)=>{
+        Object.assign(logger, customLogger);
+    };
+    return logger;
+};
+let src_logger = createLogger();
+const picocolors = __webpack_require__("../../node_modules/.pnpm/picocolors@1.1.1/node_modules/picocolors/picocolors.js");
+var picocolors_default = /*#__PURE__*/ __webpack_require__.n(picocolors);
+const isDebug = ()=>{
+    if (!process.env.DEBUG) return false;
+    const values = process.env.DEBUG.toLocaleLowerCase().split(',');
+    return [
+        'rstest',
+        'rsbuild',
+        'builder',
+        '*'
+    ].some((key)=>values.includes(key));
+};
+if (isDebug()) src_logger.level = 'verbose';
+function getTime() {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
+}
+src_logger.override({
+    debug: (message, ...args)=>{
+        if ('verbose' !== src_logger.level) return;
+        const time = picocolors_default().gray(getTime());
+        console.log(`  ${picocolors_default().magenta('rstest')} ${time} ${message}`, ...args);
+    }
+});
+const clearScreen = (force = false)=>{
+    if (!isDebug() || force) console.log('\x1Bc');
+};
+const logger_logger = {
+    ...src_logger,
+    stderr: (message, ...args)=>{
+        console.error(message, ...args);
+    }
+};
+let _lazyMatch = ()=>{
+    var __lib__ = (()=>{
+        var m = Object.defineProperty, V = Object.getOwnPropertyDescriptor, G = Object.getOwnPropertyNames, T = Object.prototype.hasOwnProperty, q = (r, e)=>{
+            for(var n in e)m(r, n, {
+                get: e[n],
+                enumerable: true
+            });
+        }, H = (r, e, n, a)=>{
+            if (e && "object" == typeof e || "function" == typeof e) for (let t of G(e))T.call(r, t) || t === n || m(r, t, {
+                get: ()=>e[t],
+                enumerable: !(a = V(e, t)) || a.enumerable
+            });
+            return r;
+        }, J = (r)=>H(m({}, "__esModule", {
+                value: true
+            }), r), w = {};
+        q(w, {
+            default: ()=>re
+        });
+        var A = (r)=>Array.isArray(r), d = (r)=>"function" == typeof r, Q = (r)=>0 === r.length, W = (r)=>"number" == typeof r, K = (r)=>"object" == typeof r && null !== r, X = (r)=>r instanceof RegExp, b = (r)=>"string" == typeof r, h = (r)=>void 0 === r, Y = (r)=>{
+            const e = new Map;
+            return (n)=>{
+                const a = e.get(n);
+                if (a) return a;
+                const t = r(n);
+                return e.set(n, t), t;
+            };
+        }, rr = (r, e, n = {})=>{
+            const a = {
+                cache: {},
+                input: r,
+                index: 0,
+                indexMax: 0,
+                options: n,
+                output: []
+            };
+            if (v(e)(a) && a.index === r.length) return a.output;
+            throw new Error(`Failed to parse at index ${a.indexMax}`);
+        }, i = (r, e)=>A(r) ? er(r, e) : b(r) ? ar(r, e) : nr(r, e), er = (r, e)=>{
+            const n = {};
+            for (const a of r){
+                if (1 !== a.length) throw new Error(`Invalid character: "${a}"`);
+                const t = a.charCodeAt(0);
+                n[t] = true;
+            }
+            return (a)=>{
+                const t = a.index, o = a.input;
+                for(; a.index < o.length && o.charCodeAt(a.index) in n;)a.index += 1;
+                const u = a.index;
+                if (u > t) {
+                    if (!h(e) && !a.options.silent) {
+                        const s = a.input.slice(t, u), c = d(e) ? e(s, o, String(t)) : e;
+                        h(c) || a.output.push(c);
+                    }
+                    a.indexMax = Math.max(a.indexMax, a.index);
+                }
+                return true;
+            };
+        }, nr = (r, e)=>{
+            const n = r.source, a = r.flags.replace(/y|$/, "y"), t = new RegExp(n, a);
+            return g((o)=>{
+                t.lastIndex = o.index;
+                const u = t.exec(o.input);
+                if (!u) return false;
+                if (!h(e) && !o.options.silent) {
+                    const s = d(e) ? e(...u, o.input, String(o.index)) : e;
+                    h(s) || o.output.push(s);
+                }
+                return o.index += u[0].length, o.indexMax = Math.max(o.indexMax, o.index), true;
+            });
+        }, ar = (r, e)=>(n)=>{
+                if (!n.input.startsWith(r, n.index)) return false;
+                if (!h(e) && !n.options.silent) {
+                    const t = d(e) ? e(r, n.input, String(n.index)) : e;
+                    h(t) || n.output.push(t);
+                }
+                return n.index += r.length, n.indexMax = Math.max(n.indexMax, n.index), true;
+            }, C = (r, e, n, a)=>{
+            const t = v(r);
+            return g(_(M((o)=>{
+                let u = 0;
+                for(; u < n;){
+                    const s = o.index;
+                    if (!t(o) || (u += 1, o.index === s)) break;
+                }
+                return u >= e;
+            })));
+        }, tr = (r, e)=>C(r, 0, 1), f = (r, e)=>C(r, 0, 1 / 0), x = (r, e)=>{
+            const n = r.map(v);
+            return g(_(M((a)=>{
+                for(let t = 0, o = n.length; t < o; t++)if (!n[t](a)) return false;
+                return true;
+            })));
+        }, l = (r, e)=>{
+            const n = r.map(v);
+            return g(_((a)=>{
+                for(let t = 0, o = n.length; t < o; t++)if (n[t](a)) return true;
+                return false;
+            }));
+        }, M = (r, e = false)=>{
+            const n = v(r);
+            return (a)=>{
+                const t = a.index, o = a.output.length, u = n(a);
+                return (!u || e) && (a.index = t, a.output.length !== o && (a.output.length = o)), u;
+            };
+        }, _ = (r, e)=>{
+            const n = v(r);
+            return n;
+        }, g = (()=>{
+            let r = 0;
+            return (e)=>{
+                const n = v(e), a = r += 1;
+                return (t)=>{
+                    var o;
+                    if (false === t.options.memoization) return n(t);
+                    const u = t.index, s = (o = t.cache)[a] || (o[a] = new Map), c = s.get(u);
+                    if (false === c) return false;
+                    if (W(c)) return t.index = c, true;
+                    if (c) return t.index = c.index, c.output?.length && t.output.push(...c.output), true;
+                    {
+                        const Z = t.output.length;
+                        if (!n(t)) return s.set(u, false), false;
+                        {
+                            const D = t.index, U = t.output.length;
+                            if (U > Z) {
+                                const ee = t.output.slice(Z, U);
+                                s.set(u, {
+                                    index: D,
+                                    output: ee
+                                });
+                            } else s.set(u, D);
+                            return true;
+                        }
+                    }
+                };
+            };
+        })(), E = (r)=>{
+            let e;
+            return (n)=>(e || (e = v(r())), e(n));
+        }, v = Y((r)=>{
+            if (d(r)) return Q(r) ? E(r) : r;
+            if (b(r) || X(r)) return i(r);
+            if (A(r)) return x(r);
+            if (K(r)) return l(Object.values(r));
+            throw new Error("Invalid rule");
+        }), P = "abcdefghijklmnopqrstuvwxyz", ir = (r)=>{
+            let e = "";
+            for(; r > 0;){
+                const n = (r - 1) % 26;
+                e = P[n] + e, r = Math.floor((r - 1) / 26);
+            }
+            return e;
+        }, O = (r)=>{
+            let e = 0;
+            for(let n = 0, a = r.length; n < a; n++)e = 26 * e + P.indexOf(r[n]) + 1;
+            return e;
+        }, S = (r, e)=>{
+            if (e < r) return S(e, r);
+            const n = [];
+            for(; r <= e;)n.push(r++);
+            return n;
+        }, or = (r, e, n)=>S(r, e).map((a)=>String(a).padStart(n, "0")), R = (r, e)=>S(O(r), O(e)).map(ir), p = (r)=>r, z = (r)=>ur((e)=>rr(e, r, {
+                    memoization: false
+                }).join("")), ur = (r)=>{
+            const e = {};
+            return (n)=>e[n] ?? (e[n] = r(n));
+        }, sr = i(/^\*\*\/\*$/, ".*"), cr = i(/^\*\*\/(\*)?([ a-zA-Z0-9._-]+)$/, (r, e, n)=>`.*${e ? "" : "(?:^|/)"}${n.replaceAll(".", "\\.")}`), lr = i(/^\*\*\/(\*)?([ a-zA-Z0-9._-]*)\{([ a-zA-Z0-9._-]+(?:,[ a-zA-Z0-9._-]+)*)\}$/, (r, e, n, a)=>`.*${e ? "" : "(?:^|/)"}${n.replaceAll(".", "\\.")}(?:${a.replaceAll(",", "|").replaceAll(".", "\\.")})`), y = i(/\\./, p), pr = i(/[$.*+?^(){}[\]\|]/, (r)=>`\\${r}`), vr = i(/./, p), hr = i(/^(?:!!)*!(.*)$/, (r, e)=>`(?!^${L(e)}$).*?`), dr = i(/^(!!)+/, ""), fr = l([
+            hr,
+            dr
+        ]), xr = i(/\/(\*\*\/)+/, "(?:/.+/|/)"), gr = i(/^(\*\*\/)+/, "(?:^|.*/)"), mr = i(/\/(\*\*)$/, "(?:/.*|$)"), _r = i(/\*\*/, ".*"), j = l([
+            xr,
+            gr,
+            mr,
+            _r
+        ]), Sr = i(/\*\/(?!\*\*\/)/, "[^/]*/"), yr = i(/\*/, "[^/]*"), N = l([
+            Sr,
+            yr
+        ]), k = i("?", "[^/]"), $r = i("[", p), wr = i("]", p), Ar = i(/[!^]/, "^/"), br = i(/[a-z]-[a-z]|[0-9]-[0-9]/i, p), Cr = i(/[$.*+?^(){}[\|]/, (r)=>`\\${r}`), Mr = i(/[^\]]/, p), Er = l([
+            y,
+            Cr,
+            br,
+            Mr
+        ]), B = x([
+            $r,
+            tr(Ar),
+            f(Er),
+            wr
+        ]), Pr = i("{", "(?:"), Or = i("}", ")"), Rr = i(/(\d+)\.\.(\d+)/, (r, e, n)=>or(+e, +n, Math.min(e.length, n.length)).join("|")), zr = i(/([a-z]+)\.\.([a-z]+)/, (r, e, n)=>R(e, n).join("|")), jr = i(/([A-Z]+)\.\.([A-Z]+)/, (r, e, n)=>R(e.toLowerCase(), n.toLowerCase()).join("|").toUpperCase()), Nr = l([
+            Rr,
+            zr,
+            jr
+        ]), I = x([
+            Pr,
+            Nr,
+            Or
+        ]), kr = i("{", "(?:"), Br = i("}", ")"), Ir = i(",", "|"), Fr = i(/[$.*+?^(){[\]\|]/, (r)=>`\\${r}`), Lr = i(/[^}]/, p), Zr = E(()=>F), Dr = l([
+            j,
+            N,
+            k,
+            B,
+            I,
+            Zr,
+            y,
+            Fr,
+            Ir,
+            Lr
+        ]), F = x([
+            kr,
+            f(Dr),
+            Br
+        ]), Ur = f(l([
+            sr,
+            cr,
+            lr,
+            fr,
+            j,
+            N,
+            k,
+            B,
+            I,
+            F,
+            y,
+            pr,
+            vr
+        ])), Vr = Ur, Gr = z(Vr), L = Gr, Tr = i(/\\./, p), qr = i(/./, p), Hr = i(/\*\*\*+/, "*"), Jr = i(/([^/{[(!])\*\*/, (r, e)=>`${e}*`), Qr = i(/(^|.)\*\*(?=[^*/)\]}])/, (r, e)=>`${e}*`), Wr = f(l([
+            Tr,
+            Hr,
+            Jr,
+            Qr,
+            qr
+        ])), Kr = Wr, Xr = z(Kr), Yr = Xr, $ = (r, e)=>{
+            const n = Array.isArray(r) ? r : [
+                r
+            ];
+            if (!n.length) return false;
+            const a = n.map($.compile), t = n.every((s)=>/(\/(?:\*\*)?|\[\/\])$/.test(s)), o = e.replace(/[\\\/]+/g, "/").replace(/\/$/, t ? "/" : "");
+            return a.some((s)=>s.test(o));
+        };
+        $.compile = (r)=>new RegExp(`^${L(Yr(r))}$`, "s");
+        var re = $;
+        return J(w);
+    })();
+    return __lib__.default || __lib__;
+};
+let _match;
+const zeptomatch = (path, pattern)=>{
+    if (!_match) {
+        _match = _lazyMatch();
+        _lazyMatch = null;
+    }
+    return _match(path, pattern);
+};
+const _DRIVE_LETTER_START_RE = /^[A-Za-z]:\//;
+function normalizeWindowsPath(input = "") {
+    if (!input) return input;
+    return input.replace(/\\/g, "/").replace(_DRIVE_LETTER_START_RE, (r)=>r.toUpperCase());
+}
+const _UNC_REGEX = /^[/\\]{2}/;
+const _IS_ABSOLUTE_RE = /^[/\\](?![/\\])|^[/\\]{2}(?!\.)|^[A-Za-z]:[/\\]/;
+const _DRIVE_LETTER_RE = /^[A-Za-z]:$/;
+const _ROOT_FOLDER_RE = /^\/([A-Za-z]:)?$/;
+const _EXTNAME_RE = /.(\.[^./]+|\.)$/;
+const _PATH_ROOT_RE = /^[/\\]|^[a-zA-Z]:[/\\]/;
+const sep = "/";
+const normalize = function(path) {
+    if (0 === path.length) return ".";
+    path = normalizeWindowsPath(path);
+    const isUNCPath = path.match(_UNC_REGEX);
+    const isPathAbsolute = isAbsolute(path);
+    const trailingSeparator = "/" === path[path.length - 1];
+    path = normalizeString(path, !isPathAbsolute);
+    if (0 === path.length) {
+        if (isPathAbsolute) return "/";
+        return trailingSeparator ? "./" : ".";
+    }
+    if (trailingSeparator) path += "/";
+    if (_DRIVE_LETTER_RE.test(path)) path += "/";
+    if (isUNCPath) {
+        if (!isPathAbsolute) return `//./${path}`;
+        return `//${path}`;
+    }
+    return isPathAbsolute && !isAbsolute(path) ? `/${path}` : path;
+};
+const join = function(...segments) {
+    let path = "";
+    for (const seg of segments)if (seg) if (path.length > 0) {
+        const pathTrailing = "/" === path[path.length - 1];
+        const segLeading = "/" === seg[0];
+        const both = pathTrailing && segLeading;
+        if (both) path += seg.slice(1);
+        else path += pathTrailing || segLeading ? seg : `/${seg}`;
+    } else path += seg;
+    return normalize(path);
+};
+function cwd() {
+    if ("u" > typeof process && "function" == typeof process.cwd) return process.cwd().replace(/\\/g, "/");
+    return "/";
+}
+const resolve = function(...arguments_) {
+    arguments_ = arguments_.map((argument)=>normalizeWindowsPath(argument));
+    let resolvedPath = "";
+    let resolvedAbsolute = false;
+    for(let index = arguments_.length - 1; index >= -1 && !resolvedAbsolute; index--){
+        const path = index >= 0 ? arguments_[index] : cwd();
+        if (path && 0 !== path.length) {
+            resolvedPath = `${path}/${resolvedPath}`;
+            resolvedAbsolute = isAbsolute(path);
+        }
+    }
+    resolvedPath = normalizeString(resolvedPath, !resolvedAbsolute);
+    if (resolvedAbsolute && !isAbsolute(resolvedPath)) return `/${resolvedPath}`;
+    return resolvedPath.length > 0 ? resolvedPath : ".";
+};
+function normalizeString(path, allowAboveRoot) {
+    let res = "";
+    let lastSegmentLength = 0;
+    let lastSlash = -1;
+    let dots = 0;
+    let char = null;
+    for(let index = 0; index <= path.length; ++index){
+        if (index < path.length) char = path[index];
+        else if ("/" === char) break;
+        else char = "/";
+        if ("/" === char) {
+            if (lastSlash === index - 1 || 1 === dots) ;
+            else if (2 === dots) {
+                if (res.length < 2 || 2 !== lastSegmentLength || "." !== res[res.length - 1] || "." !== res[res.length - 2]) {
+                    if (res.length > 2) {
+                        const lastSlashIndex = res.lastIndexOf("/");
+                        if (-1 === lastSlashIndex) {
+                            res = "";
+                            lastSegmentLength = 0;
+                        } else {
+                            res = res.slice(0, lastSlashIndex);
+                            lastSegmentLength = res.length - 1 - res.lastIndexOf("/");
+                        }
+                        lastSlash = index;
+                        dots = 0;
+                        continue;
+                    } else if (res.length > 0) {
+                        res = "";
+                        lastSegmentLength = 0;
+                        lastSlash = index;
+                        dots = 0;
+                        continue;
+                    }
+                }
+                if (allowAboveRoot) {
+                    res += res.length > 0 ? "/.." : "..";
+                    lastSegmentLength = 2;
+                }
+            } else {
+                if (res.length > 0) res += `/${path.slice(lastSlash + 1, index)}`;
+                else res = path.slice(lastSlash + 1, index);
+                lastSegmentLength = index - lastSlash - 1;
+            }
+            lastSlash = index;
+            dots = 0;
+        } else if ("." === char && -1 !== dots) ++dots;
+        else dots = -1;
+    }
+    return res;
+}
+const isAbsolute = function(p) {
+    return _IS_ABSOLUTE_RE.test(p);
+};
+const toNamespacedPath = function(p) {
+    return normalizeWindowsPath(p);
+};
+const extname = function(p) {
+    if (".." === p) return "";
+    const match = _EXTNAME_RE.exec(normalizeWindowsPath(p));
+    return match && match[1] || "";
+};
+const relative = function(from, to) {
+    const _from = resolve(from).replace(_ROOT_FOLDER_RE, "$1").split("/");
+    const _to = resolve(to).replace(_ROOT_FOLDER_RE, "$1").split("/");
+    if (":" === _to[0][1] && ":" === _from[0][1] && _from[0] !== _to[0]) return _to.join("/");
+    const _fromCopy = [
+        ..._from
+    ];
+    for (const segment of _fromCopy){
+        if (_to[0] !== segment) break;
+        _from.shift();
+        _to.shift();
+    }
+    return [
+        ..._from.map(()=>".."),
+        ..._to
+    ].join("/");
+};
+const dirname = function(p) {
+    const segments = normalizeWindowsPath(p).replace(/\/$/, "").split("/").slice(0, -1);
+    if (1 === segments.length && _DRIVE_LETTER_RE.test(segments[0])) segments[0] += "/";
+    return segments.join("/") || (isAbsolute(p) ? "/" : ".");
+};
+const format = function(p) {
+    const ext = p.ext ? p.ext.startsWith(".") ? p.ext : `.${p.ext}` : "";
+    const segments = [
+        p.root,
+        p.dir,
+        p.base ?? (p.name ?? "") + ext
+    ].filter(Boolean);
+    return normalizeWindowsPath(p.root ? resolve(...segments) : segments.join("/"));
+};
+const basename = function(p, extension) {
+    const segments = normalizeWindowsPath(p).split("/");
+    let lastSegment = "";
+    for(let i = segments.length - 1; i >= 0; i--){
+        const val = segments[i];
+        if (val) {
+            lastSegment = val;
+            break;
+        }
+    }
+    return extension && lastSegment.endsWith(extension) ? lastSegment.slice(0, -extension.length) : lastSegment;
+};
+const parse = function(p) {
+    const root = _PATH_ROOT_RE.exec(p)?.[0]?.replace(/\\/g, "/") || "";
+    const base = basename(p);
+    const extension = extname(base);
+    return {
+        root,
+        dir: dirname(p),
+        base,
+        ext: extension,
+        name: base.slice(0, base.length - extension.length)
+    };
+};
+const matchesGlob = (path, pattern)=>zeptomatch(pattern, normalize(path));
+const _path = {
+    __proto__: null,
+    basename: basename,
+    dirname: dirname,
+    extname: extname,
+    format: format,
+    isAbsolute: isAbsolute,
+    join: join,
+    matchesGlob: matchesGlob,
+    normalize: normalize,
+    normalizeString: normalizeString,
+    parse: parse,
+    relative: relative,
+    resolve: resolve,
+    sep: sep,
+    toNamespacedPath: toNamespacedPath
+};
+const delimiter = /* @__PURE__ */ (()=>globalThis.process?.platform === "win32" ? ";" : ":")();
+const _platforms = {
+    posix: void 0,
+    win32: void 0
+};
+const mix = (del = delimiter)=>new Proxy(_path, {
+        get (_, prop) {
+            if ("delimiter" === prop) return del;
+            if ("posix" === prop) return posix;
+            if ("win32" === prop) return win32;
+            return _platforms[prop] || _path[prop];
+        }
+    });
+const posix = /* @__PURE__ */ mix(":");
+const win32 = /* @__PURE__ */ mix(";");
+export { basename, clearScreen, dirname, isAbsolute, isDebug, join, logger_logger, node_process, normalize, parse, posix, relative, resolve };

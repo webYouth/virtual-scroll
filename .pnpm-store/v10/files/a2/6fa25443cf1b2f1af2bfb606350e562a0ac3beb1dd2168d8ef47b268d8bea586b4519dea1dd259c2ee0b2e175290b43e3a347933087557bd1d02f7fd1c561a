@@ -1,0 +1,115 @@
+{
+  "name": "@rstest/core",
+  "version": "0.7.7",
+  "description": "The Rsbuild-based test tool.",
+  "bugs": {
+    "url": "https://github.com/web-infra-dev/rstest/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/web-infra-dev/rstest",
+    "directory": "packages/core"
+  },
+  "keywords": [
+    "rstest",
+    "test",
+    "rstack",
+    "rspack"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "rstest": "./bin/rstest.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": {
+      "default": "./package.json"
+    },
+    "./globals": {
+      "types": "./globals.d.ts"
+    },
+    "./importMeta": {
+      "types": "./importMeta.d.ts"
+    }
+  },
+  "files": [
+    "bin",
+    "dist",
+    "compiled",
+    "globals.d.ts",
+    "importMeta.d.ts"
+  ],
+  "dependencies": {
+    "@types/chai": "^5.2.3",
+    "@rsbuild/core": "1.7.0-beta.1",
+    "tinypool": "^1.1.1"
+  },
+  "devDependencies": {
+    "chai": "^5.3.3",
+    "pathe": "^2.0.3",
+    "birpc": "2.9.0",
+    "@vitest/expect": "^3.2.4",
+    "@vitest/snapshot": "^3.2.4",
+    "@babel/code-frame": "^7.27.1",
+    "@jridgewell/trace-mapping": "0.3.31",
+    "@microsoft/api-extractor": "^7.55.2",
+    "@rslib/core": "^0.18.6",
+    "@sinonjs/fake-timers": "^15.1.0",
+    "@types/babel__code-frame": "^7.0.6",
+    "@types/istanbul-reports": "^3.0.4",
+    "@types/istanbul-lib-coverage": "^2.0.6",
+    "@types/istanbul-lib-report": "^3.0.3",
+    "@types/jsdom": "^21.1.7",
+    "@types/sinonjs__fake-timers": "^8.1.5",
+    "@types/source-map-support": "^0.5.10",
+    "@types/picomatch": "^4.0.2",
+    "cac": "^6.7.14",
+    "chokidar": "^4.0.3",
+    "happy-dom": "^20.0.11",
+    "jest-diff": "^30.2.0",
+    "jsdom": "^26.1.0",
+    "webpack-license-plugin": "^4.5.1",
+    "picocolors": "^1.1.1",
+    "pretty-format": "^30.2.0",
+    "rslog": "^1.3.2",
+    "source-map-support": "^0.5.21",
+    "std-env": "^3.10.0",
+    "stacktrace-parser": "0.1.11",
+    "strip-ansi": "^7.1.2",
+    "tinyglobby": "^0.2.15",
+    "tinyspy": "^4.0.4",
+    "picomatch": "^4.0.3",
+    "@rstest/tsconfig": "0.0.1"
+  },
+  "peerDependencies": {
+    "happy-dom": "*",
+    "jsdom": "*"
+  },
+  "peerDependenciesMeta": {
+    "happy-dom": {
+      "optional": true
+    },
+    "jsdom": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=18.12.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "build": "rslib build && npx prettier ./LICENSE.md --write",
+    "typecheck": "tsc --noEmit",
+    "dev": "cross-env SOURCEMAP=true rslib build --watch",
+    "test": "npx rstest --globals"
+  }
+}

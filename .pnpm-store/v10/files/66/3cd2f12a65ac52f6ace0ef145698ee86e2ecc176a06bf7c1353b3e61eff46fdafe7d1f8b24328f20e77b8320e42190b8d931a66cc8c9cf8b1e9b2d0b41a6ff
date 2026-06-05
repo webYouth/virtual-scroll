@@ -1,0 +1,417 @@
+import __rslib_shim_module__ from 'module';
+const require = /*#__PURE__*/ __rslib_shim_module__.createRequire(import.meta.url);
+import { __webpack_require__ } from "./rslib-runtime.js";
+import "./5693.js";
+import { formatTestError, setRealTimers, getRealTimers } from "./7913.js";
+import { node_v8, createBirpc } from "./3216.js";
+import { basename, isAbsolute, dirname, resolve as pathe_M_eThtNZ_resolve, join } from "./3278.js";
+import { createCoverageProvider } from "./5734.js";
+import { undoSerializableConfig, globalApis } from "./1157.js";
+__webpack_require__.add({
+    timers (module) {
+        module.exports = require("timers");
+    },
+    "timers/promises" (module) {
+        module.exports = require("timers/promises");
+    }
+});
+const processSend = process.send.bind(process);
+const processOn = process.on.bind(process);
+const processOff = process.off.bind(process);
+const dispose = [];
+function createForksRpcOptions(nodeV8 = node_v8) {
+    return {
+        serialize: nodeV8.serialize,
+        deserialize: (v)=>nodeV8.deserialize(Buffer.from(v)),
+        post (v) {
+            processSend(v);
+        },
+        on (fn) {
+            const handler = (message, ...extras)=>{
+                if (message?.__tinypool_worker_message__) return;
+                return fn(message, ...extras);
+            };
+            processOn('message', handler);
+            dispose.push(()=>processOff('message', handler));
+        }
+    };
+}
+function createRuntimeRpc(options, { originalConsole }) {
+    const rpc = createBirpc({}, {
+        ...options,
+        onTimeoutError: (functionName, error)=>{
+            switch(functionName){
+                case 'onTestCaseStart':
+                    {
+                        const caseTest = error[0];
+                        console.error(`[Rstest] timeout on calling "onTestCaseStart" rpc method (Case: "${caseTest.name}")`);
+                        return true;
+                    }
+                case 'onTestCaseResult':
+                    {
+                        const caseResult = error[0];
+                        console.error(`[Rstest] timeout on calling "onTestCaseResult" rpc method (Case: "${caseResult.name}", Result: "${caseResult.status}")`);
+                        return true;
+                    }
+                case 'onConsoleLog':
+                    originalConsole.error(`[Rstest] timeout on calling "onConsoleLog" rpc method (Original log: ${error[0].content})`);
+                    return true;
+                default:
+                    return false;
+            }
+        }
+    });
+    return {
+        rpc
+    };
+}
+const external_node_fs_ = __webpack_require__("node:fs");
+class NodeSnapshotEnvironment {
+    constructor(options = {}){
+        this.options = options;
+    }
+    getVersion() {
+        return "1";
+    }
+    getHeader() {
+        return `// Snapshot v${this.getVersion()}`;
+    }
+    async resolveRawPath(testPath, rawPath) {
+        return isAbsolute(rawPath) ? rawPath : pathe_M_eThtNZ_resolve(dirname(testPath), rawPath);
+    }
+    async resolvePath(filepath) {
+        return join(join(dirname(filepath), this.options.snapshotsDirName ?? "__snapshots__"), `${basename(filepath)}.snap`);
+    }
+    async prepareDirectory(dirPath) {
+        await external_node_fs_.promises.mkdir(dirPath, {
+            recursive: true
+        });
+    }
+    async saveSnapshotFile(filepath, snapshot) {
+        await external_node_fs_.promises.mkdir(dirname(filepath), {
+            recursive: true
+        });
+        await external_node_fs_.promises.writeFile(filepath, snapshot, "utf-8");
+    }
+    async readSnapshotFile(filepath) {
+        if (!(0, external_node_fs_.existsSync)(filepath)) return null;
+        return external_node_fs_.promises.readFile(filepath, "utf-8");
+    }
+    async removeSnapshotFile(filepath) {
+        if ((0, external_node_fs_.existsSync)(filepath)) await external_node_fs_.promises.unlink(filepath);
+    }
+}
+class RstestSnapshotEnvironment extends NodeSnapshotEnvironment {
+    resolveSnapshotPath;
+    constructor(options){
+        super();
+        this.resolveSnapshotPath = options.resolveSnapshotPath;
+    }
+    getHeader() {
+        return `// Rstest Snapshot v${this.getVersion()}`;
+    }
+    resolvePath(filepath) {
+        return this.resolveSnapshotPath(filepath);
+    }
+}
+const source_map_support = __webpack_require__("../../node_modules/.pnpm/source-map-support@0.5.21/node_modules/source-map-support/source-map-support.js");
+const picocolors = __webpack_require__("../../node_modules/.pnpm/picocolors@1.1.1/node_modules/picocolors/picocolors.js");
+var picocolors_default = /*#__PURE__*/ __webpack_require__.n(picocolors);
+let sourceMaps = {};
+(0, source_map_support.install)({
+    environment: 'node',
+    handleUncaughtExceptions: false,
+    retrieveSourceMap: (source)=>{
+        if (sourceMaps[source]) return {
+            url: source,
+            map: JSON.parse(sourceMaps[source])
+        };
+        return null;
+    }
+});
+const registerGlobalApi = (api)=>globalApis.reduce((apis, key)=>{
+        globalThis[key] = api[key];
+        return apis;
+    }, {});
+const listeners = [];
+let isTeardown = false;
+const setupEnv = (env)=>{
+    if (env) Object.assign(process.env, env);
+};
+const preparePool = async ({ entryInfo: { distPath, testPath }, updateSnapshot, context })=>{
+    setRealTimers();
+    context.runtimeConfig = undoSerializableConfig(context.runtimeConfig);
+    process.env.RSTEST_WORKER_ID = String(process.__tinypool_state__.workerId || context.taskId);
+    const cleanupFns = [];
+    const originalConsole = global.console;
+    const { rpc } = createRuntimeRpc(createForksRpcOptions(), {
+        originalConsole
+    });
+    const { runtimeConfig: { globals, printConsoleTrace, disableConsoleIntercept, testEnvironment, snapshotFormat, env } } = context;
+    setupEnv(env);
+    if (!disableConsoleIntercept) {
+        const { createCustomConsole } = await import("./0~130.js").then((mod)=>({
+                createCustomConsole: mod.createCustomConsole
+            }));
+        global.console = createCustomConsole({
+            rpc,
+            testPath,
+            printConsoleTrace
+        });
+    }
+    const interopDefault = true;
+    const workerState = {
+        ...context,
+        snapshotOptions: {
+            updateSnapshot,
+            snapshotEnvironment: new RstestSnapshotEnvironment({
+                resolveSnapshotPath: (filepath)=>rpc.resolveSnapshotPath(filepath)
+            }),
+            snapshotFormat
+        },
+        distPath,
+        testPath,
+        environment: 'node'
+    };
+    const { createRstestRuntime } = await import("./0~6151.js").then((mod)=>({
+            createRstestRuntime: mod.createRstestRuntime
+        }));
+    listeners.forEach((fn)=>{
+        fn();
+    });
+    listeners.length = 0;
+    const unhandledErrors = [];
+    const handleError = (e, type)=>{
+        const error = 'string' == typeof e ? new Error(e) : e;
+        error.name = type;
+        if (isTeardown) {
+            error.stack = `${picocolors_default().yellow('Caught error after test environment was torn down:')}\n\n${error.stack}`;
+            console.error(error);
+        } else {
+            console.error(error);
+            unhandledErrors.push(error);
+        }
+    };
+    const uncaughtException = (e)=>handleError(e, 'uncaughtException');
+    const unhandledRejection = (e)=>handleError(e, 'unhandledRejection');
+    process.on('uncaughtException', uncaughtException);
+    process.on('unhandledRejection', unhandledRejection);
+    listeners.push(()=>{
+        process.off('uncaughtException', uncaughtException);
+        process.off('unhandledRejection', unhandledRejection);
+    });
+    const { api, runner } = await createRstestRuntime(workerState);
+    switch(testEnvironment){
+        case 'node':
+            break;
+        case 'jsdom':
+            {
+                const { environment } = await import("./0~62.js").then((mod)=>({
+                        environment: mod.environment
+                    }));
+                const { teardown } = await environment.setup(global, {});
+                cleanupFns.push(()=>teardown(global));
+                break;
+            }
+        case 'happy-dom':
+            {
+                const { environment } = await import("./0~4809.js").then((mod)=>({
+                        environment: mod.environment
+                    }));
+                const { teardown } = await environment.setup(global, {});
+                cleanupFns.push(async ()=>teardown(global));
+                break;
+            }
+        default:
+            throw new Error(`Unknown test environment: ${testEnvironment}`);
+    }
+    if (globals) registerGlobalApi(api);
+    const rstestContext = {
+        global,
+        console: global.console,
+        Error
+    };
+    rstestContext.global['@rstest/core'] = api;
+    return {
+        interopDefault,
+        rstestContext,
+        runner,
+        rpc,
+        api,
+        unhandledErrors,
+        cleanup: async ()=>{
+            await Promise.all(cleanupFns.map((fn)=>fn()));
+        }
+    };
+};
+const loadFiles = async ({ setupEntries, assetFiles, rstestContext, distPath, testPath, interopDefault, isolate, outputModule })=>{
+    const { loadModule, updateLatestAssetFiles } = outputModule ? await import("./0~6923.js").then((mod)=>({
+            EsmMode: mod.loadEsModule_EsmMode,
+            asModule: mod.asModule,
+            loadModule: mod.loadModule,
+            updateLatestAssetFiles: mod.updateLatestAssetFiles
+        })) : await import("./0~5835.js").then((mod)=>({
+            cacheableLoadModule: mod.cacheableLoadModule,
+            loadModule: mod.loadModule,
+            updateLatestAssetFiles: mod.updateLatestAssetFiles
+        }));
+    if (!isolate) {
+        updateLatestAssetFiles(assetFiles);
+        await loadModule({
+            codeContent: `if (global && typeof global.__rstest_clean_core_cache__ === 'function') {
+  global.__rstest_clean_core_cache__();
+  }`,
+            distPath: '',
+            testPath,
+            rstestContext,
+            assetFiles,
+            interopDefault
+        });
+    }
+    for (const { distPath, testPath } of setupEntries){
+        const setupCodeContent = assetFiles[distPath];
+        await loadModule({
+            codeContent: setupCodeContent,
+            distPath,
+            testPath,
+            rstestContext,
+            assetFiles,
+            interopDefault
+        });
+    }
+    await loadModule({
+        codeContent: assetFiles[distPath],
+        distPath,
+        testPath,
+        rstestContext,
+        assetFiles,
+        interopDefault
+    });
+};
+const runInPool = async (options)=>{
+    isTeardown = false;
+    const { entryInfo: { distPath, testPath }, setupEntries, assets, type, context: { project, runtimeConfig: { isolate, bail } } } = options;
+    const cleanups = [];
+    const exit = process.exit.bind(process);
+    process.exit = (code = process.exitCode || 0)=>{
+        throw new Error(`process.exit unexpectedly called with "${code}"`);
+    };
+    const kill = process.kill.bind(process);
+    process.kill = (pid, signal)=>{
+        if (-1 === pid || Math.abs(pid) === process.pid) throw new Error(`process.kill unexpectedly called with "${pid}" and "${signal}"`);
+        return kill(pid, signal);
+    };
+    cleanups.push(()=>{
+        process.kill = kill;
+        process.exit = exit;
+    });
+    const teardown = async ()=>{
+        await new Promise((resolve)=>getRealTimers().setTimeout(resolve));
+        await Promise.all(cleanups.map((fn)=>fn()));
+        isTeardown = true;
+    };
+    if ('collect' === type) try {
+        const { rstestContext, runner, rpc, cleanup, unhandledErrors, interopDefault } = await preparePool(options);
+        const { assetFiles, sourceMaps: sourceMapsFromAssets } = assets || await rpc.getAssetsByEntry();
+        sourceMaps = sourceMapsFromAssets;
+        cleanups.push(cleanup);
+        await loadFiles({
+            rstestContext,
+            distPath,
+            testPath,
+            assetFiles,
+            setupEntries,
+            interopDefault,
+            isolate,
+            outputModule: options.context.outputModule
+        });
+        const tests = await runner.collectTests();
+        return {
+            project,
+            testPath,
+            tests,
+            errors: formatTestError(unhandledErrors)
+        };
+    } catch (err) {
+        return {
+            project,
+            testPath,
+            tests: [],
+            errors: formatTestError(err)
+        };
+    } finally{
+        await teardown();
+    }
+    try {
+        const { rstestContext, runner, rpc, api, cleanup, unhandledErrors, interopDefault } = await preparePool(options);
+        if (bail && await rpc.getCountOfFailedTests() >= bail) return {
+            testId: '0',
+            project,
+            testPath,
+            status: 'skip',
+            name: '',
+            results: []
+        };
+        const coverageProvider = await createCoverageProvider(options.context.runtimeConfig.coverage || {}, options.context.rootPath);
+        if (coverageProvider) coverageProvider.init();
+        const { assetFiles, sourceMaps: sourceMapsFromAssets } = assets || await rpc.getAssetsByEntry();
+        sourceMaps = sourceMapsFromAssets;
+        cleanups.push(cleanup);
+        rpc.onTestFileStart?.({
+            testPath,
+            tests: []
+        });
+        await loadFiles({
+            rstestContext,
+            distPath,
+            testPath,
+            assetFiles,
+            setupEntries,
+            interopDefault,
+            isolate,
+            outputModule: options.context.outputModule
+        });
+        const results = await runner.runTests(testPath, {
+            onTestFileReady: async (test)=>{
+                await rpc.onTestFileReady(test);
+            },
+            onTestSuiteStart: async (test)=>{
+                await rpc.onTestSuiteStart(test);
+            },
+            onTestSuiteResult: async (result)=>{
+                await rpc.onTestSuiteResult(result);
+            },
+            onTestCaseStart: async (test)=>{
+                await rpc.onTestCaseStart(test);
+            },
+            onTestCaseResult: async (result)=>{
+                await rpc.onTestCaseResult(result);
+            },
+            getCountOfFailedTests: async ()=>rpc.getCountOfFailedTests()
+        }, api);
+        if (unhandledErrors.length > 0) {
+            results.status = 'fail';
+            results.errors = (results.errors || []).concat(...formatTestError(unhandledErrors));
+        }
+        if (coverageProvider) {
+            const coverageMap = coverageProvider.collect();
+            if (coverageMap) results.coverage = coverageMap.toJSON();
+            coverageProvider.cleanup();
+        }
+        return results;
+    } catch (err) {
+        return {
+            testId: '0',
+            project,
+            testPath,
+            status: 'fail',
+            name: '',
+            results: [],
+            errors: formatTestError(err)
+        };
+    } finally{
+        await teardown();
+    }
+};
+const worker = runInPool;
+export default worker;

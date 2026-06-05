@@ -1,0 +1,154 @@
+import 'module';
+/*#__PURE__*/ import.meta.url;
+import { __webpack_require__ } from "./rslib-runtime.js";
+import "./5693.js";
+import { pathToFileURL } from "./6198.js";
+import { node_vm, interopModule, shouldInterop } from "./0~3346.js";
+import { posix, logger_logger } from "./3278.js";
+const external_node_path_ = __webpack_require__("node:path");
+var loadEsModule_EsmMode = /*#__PURE__*/ function(EsmMode) {
+    EsmMode[EsmMode["Unknown"] = 0] = "Unknown";
+    EsmMode[EsmMode["Evaluated"] = 1] = "Evaluated";
+    EsmMode[EsmMode["Unlinked"] = 2] = "Unlinked";
+    return EsmMode;
+}({});
+const isRelativePath = (p)=>/^\.\.?\//.test(p);
+let latestAssetFiles = {};
+const updateLatestAssetFiles = (assetFiles)=>{
+    latestAssetFiles = assetFiles;
+};
+const defineRstestDynamicImport = ({ distPath, testPath, assetFiles, interopDefault, returnModule, esmMode })=>async (specifier, importAttributes)=>{
+        const currentDirectory = posix.dirname(distPath);
+        const joinedPath = isRelativePath(specifier) ? posix.join(currentDirectory, specifier) : specifier;
+        const content = assetFiles[joinedPath] || latestAssetFiles[joinedPath];
+        if (content) try {
+            return await loadModule({
+                codeContent: content,
+                testPath,
+                distPath: joinedPath,
+                rstestContext: {},
+                assetFiles,
+                interopDefault,
+                esmMode
+            });
+        } catch (err) {
+            logger_logger.error(`load file ${joinedPath} failed:\n`, err instanceof Error ? err.message : err);
+        }
+        const resolvedPath = (0, external_node_path_.isAbsolute)(specifier) ? pathToFileURL(specifier) : import.meta.resolve(specifier, pathToFileURL(testPath));
+        const modulePath = 'string' == typeof resolvedPath ? resolvedPath : resolvedPath.pathname;
+        if (importAttributes?.with?.rstest) delete importAttributes.with.rstest;
+        if (modulePath.endsWith('.json')) {
+            const importedModule = await import(modulePath, {
+                with: {
+                    type: 'json'
+                }
+            });
+            return returnModule ? asModule(importedModule.default) : {
+                ...importedModule.default,
+                default: importedModule.default
+            };
+        }
+        const importedModule = await import(modulePath, importAttributes);
+        if (shouldInterop({
+            interopDefault,
+            modulePath,
+            mod: importedModule
+        }) && !modulePath.startsWith('node:')) {
+            const { mod, defaultExport } = interopModule(importedModule);
+            if (returnModule) return asModule(mod);
+            return new Proxy(mod, {
+                get (mod, prop) {
+                    if ('default' === prop) return defaultExport;
+                    return mod[prop] ?? defaultExport?.[prop];
+                },
+                has (mod, prop) {
+                    if ('default' === prop) return void 0 !== defaultExport;
+                    return prop in mod || defaultExport && prop in defaultExport;
+                },
+                getOwnPropertyDescriptor (mod, prop) {
+                    const descriptor = Reflect.getOwnPropertyDescriptor(mod, prop);
+                    if (descriptor) return descriptor;
+                    if ('default' === prop && void 0 !== defaultExport) return {
+                        value: defaultExport,
+                        enumerable: true,
+                        configurable: true
+                    };
+                }
+            });
+        }
+        return importedModule;
+    };
+const asModule = async (something, context, unlinked)=>{
+    const { Module, SyntheticModule } = await import("node:vm");
+    if (something instanceof Module) return something;
+    const exports = [
+        ...new Set([
+            'default',
+            ...Object.keys(something)
+        ])
+    ];
+    const syntheticModule = new SyntheticModule(exports, ()=>{
+        for (const name of exports)syntheticModule.setExport(name, 'default' === name ? something[name] ?? something : something[name]);
+    }, {
+        context
+    });
+    if (unlinked) return syntheticModule;
+    await syntheticModule.link(()=>{});
+    await syntheticModule.evaluate();
+    return syntheticModule;
+};
+const esmCache = new Map();
+const loadModule = async ({ codeContent, distPath, testPath, assetFiles, interopDefault, esmMode = 0 })=>{
+    const code = codeContent;
+    let esm = esmCache.get(distPath);
+    if (!esm) {
+        esm = new node_vm.SourceTextModule(code, {
+            identifier: distPath,
+            lineOffset: 0,
+            columnOffset: 0,
+            initializeImportMeta: (meta)=>{
+                meta.url = pathToFileURL(distPath.endsWith('rstest-runtime.mjs') ? distPath : testPath).toString();
+                meta.__rstest_dynamic_import__ = defineRstestDynamicImport({
+                    assetFiles,
+                    testPath,
+                    distPath: distPath || testPath,
+                    interopDefault,
+                    returnModule: false,
+                    esmMode: 0
+                });
+                meta.readWasmFile = (wasmPath, callback)=>{
+                    const joinedPath = isRelativePath(wasmPath.pathname) ? posix.join(posix.dirname(distPath), wasmPath.pathname) : wasmPath.pathname;
+                    const content = assetFiles[posix.normalize(joinedPath)] || latestAssetFiles[posix.normalize(joinedPath)];
+                    if (content) callback(null, Buffer.from(content, 'base64'));
+                    else callback(new Error(`WASM file ${joinedPath} not found in asset files.`));
+                };
+            },
+            importModuleDynamically: (specifier, _referencer, importAttributes)=>defineRstestDynamicImport({
+                    assetFiles,
+                    testPath,
+                    distPath: distPath || testPath,
+                    interopDefault,
+                    returnModule: true,
+                    esmMode: 2
+                })(specifier, importAttributes)
+        });
+        distPath && esmCache.set(distPath, esm);
+    }
+    if (2 === esmMode) return esm;
+    if ('unlinked' === esm.status) await esm.link(async (specifier, referencingModule)=>{
+        const result = await defineRstestDynamicImport({
+            assetFiles,
+            testPath,
+            distPath: distPath || testPath,
+            interopDefault,
+            returnModule: true,
+            esmMode: 2
+        })(specifier, referencingModule);
+        const linkedModule = await asModule(result, referencingModule.context, true);
+        return linkedModule;
+    });
+    'evaluated' !== esm.status && 'evaluating' !== esm.status && await esm.evaluate();
+    const ns = esm.namespace;
+    return ns.default && ns.default instanceof Promise ? ns.default : ns;
+};
+export { asModule, loadEsModule_EsmMode, loadModule, updateLatestAssetFiles };

@@ -1,0 +1,16 @@
+export = BasicEffectRulePlugin;
+/** @typedef {import("./RuleSetCompiler")} RuleSetCompiler */
+declare class BasicEffectRulePlugin {
+    constructor(ruleProperty: any, effectType: any);
+    ruleProperty: any;
+    effectType: any;
+    /**
+     * @param {RuleSetCompiler} ruleSetCompiler the rule set compiler
+     * @returns {void}
+     */
+    apply(ruleSetCompiler: RuleSetCompiler): void;
+}
+declare namespace BasicEffectRulePlugin {
+    export { RuleSetCompiler };
+}
+type RuleSetCompiler = import("./RuleSetCompiler");

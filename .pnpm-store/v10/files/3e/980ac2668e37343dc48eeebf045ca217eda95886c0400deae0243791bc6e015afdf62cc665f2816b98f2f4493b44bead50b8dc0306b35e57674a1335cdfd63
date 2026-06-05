@@ -1,0 +1,4 @@
+import type { LoaderDefinitionFunction } from '@rspack/core';
+declare const pitcher: LoaderDefinitionFunction;
+export declare const pitch: () => string | undefined;
+export default pitcher;

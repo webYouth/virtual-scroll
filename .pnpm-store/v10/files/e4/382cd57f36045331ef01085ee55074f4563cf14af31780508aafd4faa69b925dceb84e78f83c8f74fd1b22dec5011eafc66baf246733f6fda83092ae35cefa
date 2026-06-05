@@ -1,0 +1,50 @@
+import 'module';
+/*#__PURE__*/ import.meta.url;
+import { __webpack_require__ } from "./rslib-runtime.js";
+import "./5693.js";
+import { fileURLToPath } from "./6198.js";
+import { rspack } from "./9131.js";
+import { getAbsolutePath, formatTestEntryName } from "./1157.js";
+import { posix } from "./3278.js";
+const external_node_fs_ = __webpack_require__("node:fs");
+const picocolors = __webpack_require__("../../node_modules/.pnpm/picocolors@1.1.1/node_modules/picocolors/picocolors.js");
+var picocolors_default = /*#__PURE__*/ __webpack_require__.n(picocolors);
+const tryResolve = (request, rootPath)=>{
+    const { resolver } = rspack.experiments;
+    const esmFirstResolver = new resolver.ResolverFactory({
+        conditionNames: [
+            'node',
+            'import',
+            'require'
+        ]
+    });
+    const { path: resolvedPath } = esmFirstResolver.sync(rootPath, request);
+    return resolvedPath;
+};
+const getSetupFiles = (setups, rootPath)=>{
+    if (!setups.length) return {};
+    return Object.fromEntries(setups.map((filePath)=>{
+        const setupFile = filePath.startsWith('file://') ? fileURLToPath(filePath) : filePath;
+        const setupFilePath = getAbsolutePath(rootPath, setupFile);
+        try {
+            if (!(0, external_node_fs_.existsSync)(setupFilePath)) {
+                let errorMessage = `Setup file ${picocolors_default().red(setupFile)} not found`;
+                if (setupFilePath !== setupFile) errorMessage += picocolors_default().gray(` (resolved path: ${setupFilePath})`);
+                throw errorMessage;
+            }
+            const relativePath = posix.relative(rootPath, setupFilePath);
+            return [
+                formatTestEntryName(relativePath),
+                setupFilePath
+            ];
+        } catch (err) {
+            const resolvedPath = tryResolve(setupFile, rootPath);
+            if (resolvedPath) return [
+                formatTestEntryName(setupFile),
+                resolvedPath
+            ];
+            throw err;
+        }
+    }));
+};
+export { getSetupFiles };

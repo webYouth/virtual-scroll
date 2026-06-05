@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "lib": ["DOM", "ES2022"],
+    "baseUrl": "./",
+    "module": "ESNext",
+    "strict": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "bundler",
+    "useDefineForClassFields": true,
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  },
+  "include": ["src/vue/**/*", "src/utils/**/*"]
+}

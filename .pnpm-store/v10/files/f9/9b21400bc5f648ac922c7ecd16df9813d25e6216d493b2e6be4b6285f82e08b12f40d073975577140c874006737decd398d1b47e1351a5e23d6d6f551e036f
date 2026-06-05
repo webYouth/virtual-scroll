@@ -1,0 +1,174 @@
+import 'module';
+/*#__PURE__*/ import.meta.url;
+var comma = ",".charCodeAt(0);
+var semicolon = ";".charCodeAt(0);
+var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+var intToChar = new Uint8Array(64);
+var charToInt = new Uint8Array(128);
+for(let i = 0; i < chars.length; i++){
+    const c = chars.charCodeAt(i);
+    intToChar[i] = c;
+    charToInt[c] = i;
+}
+function decodeInteger(reader, relative) {
+    let value = 0;
+    let shift = 0;
+    let integer = 0;
+    do {
+        const c = reader.next();
+        integer = charToInt[c];
+        value |= (31 & integer) << shift;
+        shift += 5;
+    }while (32 & integer);
+    const shouldNegate = 1 & value;
+    value >>>= 1;
+    if (shouldNegate) value = -2147483648 | -value;
+    return relative + value;
+}
+function encodeInteger(builder, num, relative) {
+    let delta = num - relative;
+    delta = delta < 0 ? -delta << 1 | 1 : delta << 1;
+    do {
+        let clamped = 31 & delta;
+        delta >>>= 5;
+        if (delta > 0) clamped |= 32;
+        builder.write(intToChar[clamped]);
+    }while (delta > 0);
+    return num;
+}
+function hasMoreVlq(reader, max) {
+    if (reader.pos >= max) return false;
+    return reader.peek() !== comma;
+}
+var bufLength = 16384;
+var td = "u" > typeof TextDecoder ? /* @__PURE__ */ new TextDecoder() : "u" > typeof Buffer ? {
+    decode (buf) {
+        const out = Buffer.from(buf.buffer, buf.byteOffset, buf.byteLength);
+        return out.toString();
+    }
+} : {
+    decode (buf) {
+        let out = "";
+        for(let i = 0; i < buf.length; i++)out += String.fromCharCode(buf[i]);
+        return out;
+    }
+};
+var StringWriter = class {
+    constructor(){
+        this.pos = 0;
+        this.out = "";
+        this.buffer = new Uint8Array(bufLength);
+    }
+    write(v) {
+        const { buffer } = this;
+        buffer[this.pos++] = v;
+        if (this.pos === bufLength) {
+            this.out += td.decode(buffer);
+            this.pos = 0;
+        }
+    }
+    flush() {
+        const { buffer, out, pos } = this;
+        return pos > 0 ? out + td.decode(buffer.subarray(0, pos)) : out;
+    }
+};
+var StringReader = class {
+    constructor(buffer){
+        this.pos = 0;
+        this.buffer = buffer;
+    }
+    next() {
+        return this.buffer.charCodeAt(this.pos++);
+    }
+    peek() {
+        return this.buffer.charCodeAt(this.pos);
+    }
+    indexOf(char) {
+        const { buffer, pos } = this;
+        const idx = buffer.indexOf(char, pos);
+        return -1 === idx ? buffer.length : idx;
+    }
+};
+function decode(mappings) {
+    const { length } = mappings;
+    const reader = new StringReader(mappings);
+    const decoded = [];
+    let genColumn = 0;
+    let sourcesIndex = 0;
+    let sourceLine = 0;
+    let sourceColumn = 0;
+    let namesIndex = 0;
+    do {
+        const semi = reader.indexOf(";");
+        const line = [];
+        let sorted = true;
+        let lastCol = 0;
+        genColumn = 0;
+        while(reader.pos < semi){
+            let seg;
+            genColumn = decodeInteger(reader, genColumn);
+            if (genColumn < lastCol) sorted = false;
+            lastCol = genColumn;
+            if (hasMoreVlq(reader, semi)) {
+                sourcesIndex = decodeInteger(reader, sourcesIndex);
+                sourceLine = decodeInteger(reader, sourceLine);
+                sourceColumn = decodeInteger(reader, sourceColumn);
+                if (hasMoreVlq(reader, semi)) {
+                    namesIndex = decodeInteger(reader, namesIndex);
+                    seg = [
+                        genColumn,
+                        sourcesIndex,
+                        sourceLine,
+                        sourceColumn,
+                        namesIndex
+                    ];
+                } else seg = [
+                    genColumn,
+                    sourcesIndex,
+                    sourceLine,
+                    sourceColumn
+                ];
+            } else seg = [
+                genColumn
+            ];
+            line.push(seg);
+            reader.pos++;
+        }
+        if (!sorted) sort(line);
+        decoded.push(line);
+        reader.pos = semi + 1;
+    }while (reader.pos <= length);
+    return decoded;
+}
+function sort(line) {
+    line.sort(sortComparator);
+}
+function sortComparator(a, b) {
+    return a[0] - b[0];
+}
+function encode(decoded) {
+    const writer = new StringWriter();
+    let sourcesIndex = 0;
+    let sourceLine = 0;
+    let sourceColumn = 0;
+    let namesIndex = 0;
+    for(let i = 0; i < decoded.length; i++){
+        const line = decoded[i];
+        if (i > 0) writer.write(semicolon);
+        if (0 === line.length) continue;
+        let genColumn = 0;
+        for(let j = 0; j < line.length; j++){
+            const segment = line[j];
+            if (j > 0) writer.write(comma);
+            genColumn = encodeInteger(writer, segment[0], genColumn);
+            if (1 !== segment.length) {
+                sourcesIndex = encodeInteger(writer, segment[1], sourcesIndex);
+                sourceLine = encodeInteger(writer, segment[2], sourceLine);
+                sourceColumn = encodeInteger(writer, segment[3], sourceColumn);
+                if (4 !== segment.length) namesIndex = encodeInteger(writer, segment[4], namesIndex);
+            }
+        }
+    }
+    return writer.flush();
+}
+export { decode, encode };
